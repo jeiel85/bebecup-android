@@ -1,6 +1,6 @@
 {
-  "name": "아기사진 월드컵",
-  "description": "엄빠들을 위한 주기적인 최근 아기 사진 베스트 샷 수집 및 토너먼트 형식의 이상형 월드컵을 통해 똑똑하게 출력 사진을 엄선하고 찍스(ZZIXX) 등으로 연결해주는 앱",
+  "name": "베베컵",
+  "description": "부모가 직접 선택한 실제 아기 사진으로 이상형 월드컵을 만들고 인화 후보를 정리하는 Android 앱",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }

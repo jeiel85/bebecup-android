@@ -1,0 +1,5 @@
+First release prepared for Play Store registration.
+
+• Removed automatic mock and preset photo seeding.
+• World Cup and print selections now use real photos chosen by the user.
+• External photo-print ordering is handled as a website handoff.

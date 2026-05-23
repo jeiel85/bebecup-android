@@ -1,21 +1,21 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# 베베컵
 
-# Run and deploy your AI Studio app
-
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/0e9be31e-c007-494f-bde1-8a9b2274aba0
+실제 아기 사진으로 이상형 월드컵을 만들고 인화 후보를 정리하는 Android 앱입니다.
 
 ## Run Locally
 
-**Prerequisites:**  [Android Studio](https://developer.android.com/studio)
-
+**Prerequisites:** [Android Studio](https://developer.android.com/studio)
 
 1. Open Android Studio
 2. Select **Open** and choose the directory containing this project
 3. Allow Android Studio to fix any incompatibilities as it imports the project.
-4. Create a file named `.env` in the project directory and set `GEMINI_API_KEY` in that file to your Gemini API key (see `.env.example` for an example)
-5. Remove this line from the app's `build.gradle.kts` file: `signingConfig = signingConfigs.getByName("debugConfig")`
-6. Run the app on an emulator or physical device
+4. Run the app on an emulator or physical device.
+
+## Release
+
+릴리즈 서명과 Play 제출 산출물 절차는 `docs/RELEASE.md`를 따른다.
+
+```bash
+./gradlew :app:bundleRelease
+./gradlew :app:exportReleaseToDesktop
+```

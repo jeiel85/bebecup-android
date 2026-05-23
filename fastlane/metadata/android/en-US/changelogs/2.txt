@@ -1,0 +1,3 @@
+• Added an automated startup pruning process to clean up legacy mock records from the local database.
+• Established automated release and test verification pipelines in GitHub Actions.
+• Documented build gating and automated release procedures.
