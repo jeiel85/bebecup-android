@@ -32,7 +32,7 @@
 
 | 항목 | 입력값 |
 | --- | --- |
-| 개인정보처리방침 URL | https://jeiel85.github.io/bebe-cup/privacy/ (GitHub Pages, `docs/privacy/index.html`. 공개·로그인 불필요·지역 제한 없음. 소스: [docs/privacy/index.html](privacy/index.html)) |
+| 개인정보처리방침 URL | https://jeiel85.github.io/bebecup-android/privacy/ (GitHub Pages, `docs/privacy/index.html`. 공개·로그인 불필요·지역 제한 없음. 소스: [docs/privacy/index.html](privacy/index.html)) |
 | 앱 액세스 | 제한 없음. 로그인/계정/테스트 계정 없음. |
 | 광고 포함 여부 | 아니요 |
 | 데이터 보안 - 수집 | 수집하지 않음. 사용자가 선택한 로컬 이미지 URI는 기기 내부 Room DB에만 저장하며 외부 서버로 전송하지 않음. |
@@ -71,11 +71,11 @@
 
 Play Console에 값을 입력하기 전에 완료해 두어야 하는 외부 작업.
 
-1. **GitHub Pages 활성화**
-   - `https://github.com/jeiel85/bebe-cup/settings/pages`
-   - Source: `Deploy from a branch`
-   - Branch: `main` / Folder: `/docs`
-   - 저장 후 1~2분 뒤 https://jeiel85.github.io/bebe-cup/privacy/ 접근 확인. 공개 상태·로그인 불필요·지역 제한 없음이 보장되어야 한다.
+1. **GitHub Pages 활성화** ✅ 2026-05-24 완료
+   - Repo: `https://github.com/jeiel85/bebecup-android` (이전 `jeiel85/bebe-cup`에서 이름 변경)
+   - Source: `main` / `/docs` (gh api로 활성화 완료)
+   - 공개 사이트: https://jeiel85.github.io/bebecup-android/
+   - Privacy URL: https://jeiel85.github.io/bebecup-android/privacy/
 2. **Play Console 개발자 계정 로그인**
    - 계정: `pedaiah85@gmail.com` (Chrome account chooser에서 선택).
    - `jeiel85@gmail.com`의 옛 Play Console 개발자 계정(ID `4685898627432283006`)은 해지 상태이므로 이 계정으로 업로드 시도 금지.

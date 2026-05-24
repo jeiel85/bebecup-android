@@ -2,7 +2,7 @@
 
 최종 업데이트: 2026-05-24
 
-이 문서는 Play Console 제출 전 공개 웹 페이지로 게시하기 위한 초안입니다. 실제 게시 페이지는 [docs/privacy/index.html](privacy/index.html)이며, 공개 URL은 https://jeiel85.github.io/bebe-cup/privacy/ 입니다. 이 마크다운은 사람 읽기용 원본으로 보관합니다.
+이 문서는 Play Console 제출 전 공개 웹 페이지로 게시하기 위한 초안입니다. 실제 게시 페이지는 [docs/privacy/index.html](privacy/index.html)이며, 공개 URL은 https://jeiel85.github.io/bebecup-android/privacy/ 입니다. 이 마크다운은 사람 읽기용 원본으로 보관합니다.
 
 ## 1. 서비스
 
