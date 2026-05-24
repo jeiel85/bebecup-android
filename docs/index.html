@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#FFB3C6" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#1d1320" media="(prefers-color-scheme: dark)" />
+<meta name="description" content="베베컵 — 직접 고른 아기 사진으로 만드는 가족 사진 월드컵. 분석·광고·추적 SDK 없이 기기 안에서 조용히 정리하는 Android 앱." />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="베베컵 · Bebecup" />
+<meta property="og:description" content="직접 고른 아기 사진으로 만드는 가족 사진 월드컵 — A family photo tournament made from baby photos you choose." />
+<meta property="og:url" content="https://jeiel85.github.io/bebecup-android/" />
+<title>베베컵 · Bebecup</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fff7f4;
+    --surface: #ffffff;
+    --ink: #1f1320;
+    --muted: #6b5563;
+    --accent: #ef476f;
+    --accent-soft: #ffd6e0;
+    --border: rgba(31, 19, 32, 0.08);
+    --shadow: 0 10px 30px rgba(239, 71, 111, 0.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a0f1c;
+      --surface: #261626;
+      --ink: #f3e3eb;
+      --muted: #b39aa6;
+      --accent: #ff7aa0;
+      --accent-soft: #3b1f2e;
+      --border: rgba(243, 227, 235, 0.1);
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Apple SD Gothic Neo", Roboto, sans-serif;
+    line-height: 1.65;
+    color: var(--ink);
+    background: var(--bg);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .container { max-width: 880px; margin: 0 auto; padding: 0 1.25rem; }
+  nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    max-width: 880px;
+    margin: 0 auto;
+  }
+  nav .brand { display: flex; align-items: center; gap: 0.6rem; font-weight: 700; }
+  nav .brand svg { width: 32px; height: 32px; }
+  nav .links { display: flex; gap: 1rem; font-size: 0.95rem; }
+  nav .links a { color: var(--muted); }
+  nav .links a:hover { color: var(--accent); }
+
+  .hero {
+    position: relative;
+    text-align: center;
+    padding: 2.5rem 1.25rem 3rem;
+    background:
+      radial-gradient(circle at 20% 20%, #ffd6e055 0, transparent 55%),
+      radial-gradient(circle at 80% 60%, #ffb3c655 0, transparent 60%),
+      linear-gradient(160deg, #fff3f0, #ffd6e0 55%, #ffb3c6);
+    overflow: hidden;
+  }
+  @media (prefers-color-scheme: dark) {
+    .hero {
+      background:
+        radial-gradient(circle at 20% 20%, #5a263a55 0, transparent 55%),
+        radial-gradient(circle at 80% 60%, #3a1a2a66 0, transparent 60%),
+        linear-gradient(160deg, #25132a, #311a30 55%, #3a1f37);
+    }
+  }
+  .hero .mark { width: 128px; height: 128px; margin: 0 auto 1.25rem; display: block; filter: drop-shadow(0 6px 18px rgba(239,71,111,0.25)); }
+  .hero h1 { font-size: clamp(2rem, 4.5vw, 2.75rem); margin: 0 0 0.4rem; letter-spacing: -0.01em; }
+  .hero .lede { font-size: clamp(1rem, 2.2vw, 1.15rem); margin: 0 auto 0.4rem; max-width: 540px; color: var(--ink); }
+  .hero .lede.en { color: var(--muted); font-size: 0.95rem; }
+
+  section { padding: 3rem 0; }
+  section h2 { font-size: 1.4rem; margin: 0 0 1rem; letter-spacing: -0.01em; }
+  section p { color: var(--muted); }
+  .grid { display: grid; gap: 1rem; grid-template-columns: 1fr; }
+  @media (min-width: 640px) { .grid { grid-template-columns: 1fr 1fr; } }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.25rem 1.25rem 1rem;
+    box-shadow: var(--shadow);
+  }
+  .card .ico { font-size: 1.5rem; margin-bottom: 0.4rem; }
+  .card h3 { font-size: 1.05rem; margin: 0 0 0.4rem; }
+  .card p { font-size: 0.95rem; margin: 0; color: var(--muted); line-height: 1.55; }
+
+  .privacy-note {
+    margin-top: 1.5rem;
+    padding: 1rem 1.25rem;
+    background: var(--accent-soft);
+    border-radius: 14px;
+    font-size: 0.95rem;
+  }
+  .privacy-note strong { color: var(--ink); }
+
+  .install {
+    text-align: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 2rem 1.5rem;
+    box-shadow: var(--shadow);
+  }
+  .install p { margin: 0 0 0.5rem; color: var(--muted); }
+  .install .status { font-size: 1.1rem; color: var(--ink); }
+  .install .stat-row { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; margin-top: 0.75rem; font-size: 0.9rem; color: var(--muted); }
+  .install .stat-row span { background: var(--accent-soft); padding: 0.25rem 0.6rem; border-radius: 999px; }
+
+  footer {
+    text-align: center;
+    padding: 2.5rem 1.25rem 3rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  footer a { color: var(--muted); margin: 0 0.5rem; }
+  footer a:hover { color: var(--accent); }
+
+  .en { font-size: 0.85rem; color: var(--muted); font-weight: normal; display: block; margin-top: 0.2rem; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">
+    <!-- Inline mark, same design as Android launcher icon -->
+    <svg viewBox="0 0 108 108" aria-hidden="true">
+      <defs>
+        <linearGradient id="nbg" x1="0" y1="0" x2="108" y2="108" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#FFF3F0" />
+          <stop offset="0.5" stop-color="#FFD6E0" />
+          <stop offset="1" stop-color="#FFB3C6" />
+        </linearGradient>
+      </defs>
+      <rect width="108" height="108" rx="22" fill="url(#nbg)"/>
+      <circle cx="54" cy="50" r="22" fill="#FFF0E0"/>
+      <circle cx="38" cy="54" r="4" fill="#FFA69E"/>
+      <circle cx="70" cy="54" r="4" fill="#FFA69E"/>
+      <path d="M42,46 Q46,42 50,46" stroke="#704C38" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+      <path d="M58,46 Q62,42 66,46" stroke="#704C38" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+      <path d="M50,56 Q54,61 58,56" stroke="#704C38" stroke-width="2" stroke-linecap="round" fill="none"/>
+      <path d="M44,28 L40,16 L49,21 L54,12 L59,21 L68,16 L64,28 Z" fill="#FFD166" stroke="#E9C46A"/>
+      <circle cx="40" cy="15" r="1.4" fill="#EF476F"/>
+      <circle cx="54" cy="11" r="1.4" fill="#EF476F"/>
+      <circle cx="68" cy="15" r="1.4" fill="#EF476F"/>
+    </svg>
+    <span>베베컵</span>
+  </div>
+  <div class="links">
+    <a href="#features">기능</a>
+    <a href="#privacy">개인정보</a>
+    <a href="privacy/">방침</a>
+    <a href="https://github.com/jeiel85/bebecup-android" rel="noopener">GitHub</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <svg class="mark" viewBox="0 0 108 108" aria-hidden="true">
+    <defs>
+      <linearGradient id="hbg" x1="0" y1="0" x2="108" y2="108" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#FFF3F0" />
+        <stop offset="0.5" stop-color="#FFD6E0" />
+        <stop offset="1" stop-color="#FFB3C6" />
+      </linearGradient>
+    </defs>
+    <rect width="108" height="108" rx="24" fill="url(#hbg)"/>
+    <circle cx="54" cy="50" r="22" fill="#FFF0E0" stroke="#FFDCC8" stroke-width="0.6"/>
+    <circle cx="38" cy="54" r="4" fill="#FFA69E"/>
+    <circle cx="70" cy="54" r="4" fill="#FFA69E"/>
+    <path d="M42,46 Q46,42 50,46" stroke="#704C38" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+    <path d="M58,46 Q62,42 66,46" stroke="#704C38" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+    <path d="M50,56 Q54,61 58,56" stroke="#704C38" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <path d="M44,28 L40,16 L49,21 L54,12 L59,21 L68,16 L64,28 Z" fill="#FFD166" stroke="#E9C46A"/>
+    <circle cx="40" cy="15" r="1.4" fill="#EF476F"/>
+    <circle cx="54" cy="11" r="1.4" fill="#EF476F"/>
+    <circle cx="68" cy="15" r="1.4" fill="#EF476F"/>
+  </svg>
+  <h1>베베컵</h1>
+  <p class="lede">직접 고른 아기 사진으로 만드는 가족 사진 월드컵</p>
+  <p class="lede en">A family photo tournament made from baby photos you choose.</p>
+</header>
+
+<main class="container">
+
+  <section id="features">
+    <h2>주요 기능 <span class="en">Key features</span></h2>
+    <div class="grid">
+      <div class="card">
+        <div class="ico">📷</div>
+        <h3>사진 후보 관리</h3>
+        <p>Android Photo Picker로 가족이 직접 고른 아기 사진만 후보로 등록합니다. 목업·샘플 사진은 넣지 않습니다.</p>
+      </div>
+      <div class="card">
+        <div class="ico">🏆</div>
+        <h3>이상형 월드컵</h3>
+        <p>토너먼트로 좋아하는 사진을 골라가며 최고의 한 장을 뽑습니다. 우승 사진은 명예의 전당에 기록됩니다.</p>
+      </div>
+      <div class="card">
+        <div class="ico">🖼️</div>
+        <h3>인화 후보 정리</h3>
+        <p>가족이 함께 인화할 후보를 따로 모아두고, 결정한 사진만 외부 인화 사이트로 가져갈 수 있습니다.</p>
+      </div>
+      <div class="card">
+        <div class="ico">🔒</div>
+        <h3>기기 안에서만</h3>
+        <p>선택한 사진의 로컬 URI와 월드컵 기록은 기기 내부 저장소에만 보관됩니다. 외부 서버 업로드 없음.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="privacy">
+    <h2>개인정보 보호 <span class="en">Privacy first</span></h2>
+    <p>베베컵은 분석·광고·추적 SDK를 사용하지 않습니다. 사용자가 명시적으로 외부 인화 사이트를 열기 전까지 사진 파일은 기기 밖으로 나가지 않습니다.</p>
+    <div class="privacy-note">
+      <p><strong>아이의 사진은 가족의 것입니다.</strong> 베베컵은 가족 안에서 사진을 정리할 수 있게 돕는 도구일 뿐, 광고 노출이나 데이터 수익화의 대상이 아닙니다.</p>
+      <p style="margin: 0.5rem 0 0;">자세한 내용은 <a href="privacy/">개인정보처리방침</a>에서 확인할 수 있습니다.</p>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="install">
+      <p class="status"><strong>Google Play 출시 준비 중</strong></p>
+      <p>안정화가 끝나는 대로 Google Play Store에 등록됩니다.</p>
+      <div class="stat-row">
+        <span>Android 7.0 (API 24)+</span>
+        <span>오프라인 우선</span>
+        <span>광고 없음</span>
+      </div>
+      <p style="margin-top: 1rem;"><a href="https://github.com/jeiel85/bebecup-android" rel="noopener">소스 코드 보기 →</a></p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div>
+    <a href="privacy/">개인정보처리방침</a> ·
+    <a href="https://github.com/jeiel85/bebecup-android" rel="noopener">GitHub</a> ·
+    <a href="mailto:pedaiah85@gmail.com">문의</a>
+  </div>
+  <p style="margin-top: 0.75rem;">© 2026 Yongeun Park · 베베컵 · Bebecup</p>
+</footer>
+
+</body>
+</html>
