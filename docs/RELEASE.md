@@ -2,18 +2,37 @@
 
 베베컵 release 빌드는 서명 값이 제공된 경우에만 release keystore로 서명된다. keystore와 비밀번호는 저장소에 커밋하지 않는다.
 
+## Upload Keystore (Play App Signing)
+
+최초 등록용 업로드 키스토어는 이미 생성되어 있다. Play App Signing을 사용하므로 사용자에게 배포되는 서명 키는 Google이 관리하며, 본 키스토어는 Play Console 업로드 인증에만 쓰인다.
+
+| 항목 | 값 |
+| --- | --- |
+| 위치 | `.keystore/bebecup-release.p12` (gitignored) |
+| 형식 | PKCS12 |
+| 키 알고리즘 | RSA 4096-bit |
+| 서명 알고리즘 | SHA384withRSA |
+| Alias | `bebecup-release` |
+| Distinguished Name | `CN=Bebecup, OU=Android, O=Bebecup, L=Seoul, ST=Seoul, C=KR` |
+| 생성일 | 2026-05-24 |
+| 만료일 | 2053-10-09 (10,000일) |
+| SHA-256 | `05:01:95:78:3E:88:0F:19:04:DF:91:4D:EA:5A:BE:20:1E:79:BE:84:47:25:C7:23:60:BD:45:A3:B0:C3:51:B7` |
+
+비밀번호와 별칭은 `.keystore/release-signing-backup.properties`와 `.keystore/keystore-info.txt`에 백업되어 있다. 두 파일 모두 `.gitignore`로 커밋이 차단되어 있다. 이 폴더가 손상되거나 비밀번호를 분실하면 업로드 키 재설정 절차(Play Console의 "Request upload key reset")를 따라야 한다.
+
 ## Local Signed Release Build
 
 로컬에 `release-signing.properties` 파일을 만든다.
 
 ```properties
-BEBECUP_RELEASE_STORE_FILE=.secrets/bebecup-release.p12
+BEBECUP_RELEASE_STORE_FILE=.keystore/bebecup-release.p12
 BEBECUP_RELEASE_STORE_PASSWORD=your-keystore-password
 BEBECUP_RELEASE_KEY_ALIAS=bebecup-release
 BEBECUP_RELEASE_KEY_PASSWORD=your-keystore-password
 ```
 
 PKCS12 keystore를 쓰는 경우 `BEBECUP_RELEASE_KEY_PASSWORD`는 보통 store password와 동일하게 둔다.
+로컬 생성본의 백업 정보는 커밋하지 않는 `.keystore/` 폴더에 보관한다.
 
 서명 값을 제공하지 않아도 검증용 unsigned release bundle은 만들 수 있다.
 

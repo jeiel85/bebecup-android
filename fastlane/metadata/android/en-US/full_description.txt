@@ -1,0 +1,13 @@
+Bebecup helps parents and guardians create a photo tournament from real baby photos they personally choose, then organize favorite photos for printing.
+
+Photos are selected through the Android Photo Picker. The app does not seed mock, preset, or sample photos on first launch. It stores only the local image URIs selected by the user and tournament records on the device.
+
+Key features
+- Manage photo candidates chosen by you
+- Run a baby photo tournament
+- Review winning photos and print candidates
+- Open an external print site in the browser
+
+Bebecup does not upload photo files to external services on its own. External print-site integration is limited to an explicit browser handoff initiated by the user.
+
+The app is designed for quiet on-device family photo organization without analytics, ads, or tracking SDKs.

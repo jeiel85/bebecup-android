@@ -1,5 +1,13 @@
 # History
 
+## 2026-05-24 (Play Console 최초 등록 준비)
+
+- **릴리즈 키스토어 생성**: 기존 release keystore가 없어 `.keystore/bebecup-release.p12`를 PKCS12/RSA 4096bit로 생성하고, `release-signing.properties` 및 `.keystore/release-signing-backup.properties`에 서명 값을 저장함.
+- **비밀 파일 보호**: `.keystore/`를 `.gitignore`에 추가하여 릴리즈 키스토어와 비밀번호 백업이 Git에 포함되지 않도록 처리함.
+- **Play Console 등록값 정리**: `docs/PLAY_CONSOLE_INITIAL_REGISTRATION.md`에 최초 앱 생성, 스토어 등록정보, 앱 콘텐츠, 그래픽 자산, 릴리즈 업로드 값을 정리함.
+- **스토어 메타데이터 추가**: fastlane `title`, `short_description`, `full_description`을 ko-KR/en-US로 작성함.
+- **개인정보처리방침 초안 추가**: `docs/PRIVACY_POLICY_DRAFT.md`에 로컬 사진 URI 저장, 외부 업로드 없음, 광고/분석/추적 SDK 없음 정책을 정리함.
+
 ## 2026-05-23 (v0.2.0 릴리즈 작업)
 
 - **데이터베이스 강건화**: `BabyPhotoDao`에 `pruneMockPhotos` 쿼리를 신설하고, `BabyCupViewModel` 기동 시 비정상/목업 URI 데이터를 자동 안전 소거하도록 처리함.

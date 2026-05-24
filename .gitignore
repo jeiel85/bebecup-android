@@ -19,3 +19,4 @@ debug.keystore
 release-signing.properties
 signing.properties
 .secrets/
+.keystore/
