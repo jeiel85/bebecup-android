@@ -52,11 +52,12 @@
 
 | 항목 | 상태 |
 | --- | --- |
-| 앱 아이콘 | Android launcher icon 포함 (`app/src/main/res/mipmap-*`) |
-| 대표 이미지 | TBD: 1024 x 500 PNG/JPG feature graphic 필요. 별도 디자인 작업 필요 항목. |
-| 휴대전화 스크린샷 | TBD: 실제 앱 화면 2장 이상. 320~3840px, 16:9 또는 9:16. |
-| 7인치/10인치 태블릿 스크린샷 | 해당 폼에서 요구 시 준비. |
-| 아이콘 (512 x 512) | TBD: 32-bit PNG, alpha 포함. Play Console 별도 업로드 항목. |
+| 앱 아이콘 | Android launcher icon (`app/src/main/res/mipmap-*`) — adaptive icon + foreground/background vector |
+| 대표 이미지 | [`fastlane/metadata/android/play_store/feature_graphic_1024x500.png`](../fastlane/metadata/android/play_store/feature_graphic_1024x500.png) (1024×500 PNG, 베베컵 마스코트 + 타이틀 + 태그라인) |
+| 휴대전화 스크린샷 | ko-KR: [`1_home.png`](../fastlane/metadata/android/ko-KR/images/phoneScreenshots/1_home.png), [`2_hall_of_fame.png`](../fastlane/metadata/android/ko-KR/images/phoneScreenshots/2_hall_of_fame.png) (1080×2340, Galaxy S24 실기 캡처). en-US 동일 자산을 [`en-US/images/phoneScreenshots/`](../fastlane/metadata/android/en-US/images/phoneScreenshots/)에 복사. |
+| 7인치/10인치 태블릿 스크린샷 | 별도 제출 없음 — 휴대전화 폼팩터만 지원. |
+| 아이콘 (512 x 512) | [`fastlane/metadata/android/play_store/icon_512.png`](../fastlane/metadata/android/play_store/icon_512.png) (32-bit PNG, alpha 포함) |
+| 자산 재생성 | `python fastlane/scripts/generate_store_assets.py` — 마스코트 벡터에서 아이콘과 대표 이미지를 동일 디자인으로 재생성한다. |
 
 ## 릴리즈 업로드
 

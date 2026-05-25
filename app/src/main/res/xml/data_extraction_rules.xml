@@ -1,19 +1,17 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample data extraction rules file; uncomment and customize as necessary.
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+   Bebecup data extraction rules (Android 12 / API 31+).
+
+   Cloud backup: include all app data (Room DB + shared prefs). Bebecup does
+   not store secrets, analytics, or third-party tokens, so no exclude rule is
+   needed. Photo URIs are persisted Photo Picker grants and may not resolve
+   on a restored device — that limitation is by design.
+
+   Device transfer: same policy as cloud backup. No rules omitted.
+
    See https://developer.android.com/about/versions/12/backup-restore#xml-changes
-   for details.
 -->
 <data-extraction-rules>
-    <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
-    </cloud-backup>
-    <!--
-    <device-transfer>
-        <include .../>
-        <exclude .../>
-    </device-transfer>
-    -->
+    <cloud-backup />
+    <device-transfer />
 </data-extraction-rules>
