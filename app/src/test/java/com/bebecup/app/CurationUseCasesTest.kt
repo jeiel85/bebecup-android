@@ -74,6 +74,25 @@ class CurationUseCasesTest {
     }
 
     @Test
+    fun `shortlist and rejected are scoped to the current scan's photos`() = runBlocking {
+        // Photos from a "previous scan" (high scores) + current scan (lower).
+        val oldHigh = insertPhoto("oldHigh"); val curA = insertPhoto("curA"); val curB = insertPhoto("curB")
+        aiRepo.saveAnalyses(listOf(
+            analysis(oldHigh, 99f),
+            analysis(curA, 70f),
+            analysis(curB, 40f)
+        ))
+        val scanScope = setOf(curA, curB) // only the current scan
+
+        val shortlist = BuildAiShortlistUseCase(babyRepo, aiRepo)(limit = 1, photoIds = scanScope)
+        // Must NOT pull the higher-scoring photo from a prior scan.
+        assertEquals(listOf("curA"), shortlist.map { it.photo.title })
+
+        val rejected = BuildRejectedListUseCase(babyRepo, aiRepo)(shortlistLimit = 1, photoIds = scanScope)
+        assertEquals(listOf("curB"), rejected.map { it.photo.title })
+    }
+
+    @Test
     fun `clustering demotes the weaker near-duplicate`() = runBlocking {
         val strong = insertPhoto("strong"); val weak = insertPhoto("weak"); val unique = insertPhoto("unique")
         // strong & weak share a dHash → duplicates; unique is far away.

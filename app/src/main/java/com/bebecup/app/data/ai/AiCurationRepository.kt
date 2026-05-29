@@ -21,6 +21,7 @@ interface AiCurationRepository {
 
     // --- Clusters ---
     suspend fun saveClusters(clusters: List<PhotoClusterEntity>)
+    suspend fun clearClusters()
     fun observeClusters(): Flow<List<PhotoClusterEntity>>
 
     // --- Sessions ---
@@ -66,6 +67,8 @@ class RoomAiCurationRepository(
 
     override suspend fun saveClusters(clusters: List<PhotoClusterEntity>) =
         clusterDao.insertAll(clusters)
+
+    override suspend fun clearClusters() = clusterDao.deleteAll()
 
     override fun observeClusters(): Flow<List<PhotoClusterEntity>> =
         clusterDao.observeAll()

@@ -274,6 +274,10 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
             aiTotalCount = 0
             aiRejectedCount = 0
             aiClusterCount = 0
+            // AI state must not outlive its session (avoids a stale AI #1 pick
+            // leaking into a later winner-match comparison).
+            aiTopPickId = null
+            aiTopPickTitle = null
             aiProgressStep = STEP_SCAN
             navigateTo(UiScreen.AiScanProgress)
 
@@ -295,7 +299,7 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
                 aiTotalCount = photos.size
 
                 aiProgressStep = STEP_ANALYZE
-                val analyzedCount = analyzePhotoQuality(
+                analyzePhotoQuality(
                     photos = photos,
                     sleepingModeEnabled = aiSleepingModeEnabled,
                     nowMillis = System.currentTimeMillis()
@@ -315,18 +319,28 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
                 explainTopPhotos(ExplainTopPhotosUseCase.DEFAULT_LIMIT)
 
                 aiProgressStep = STEP_SHORTLIST
-                val shortlist = buildAiShortlist(BuildAiShortlistUseCase.DEFAULT_LIMIT)
+                // Scope results + counts to THIS scan's photos. Analysis rows
+                // accumulate across scans/ranges, so an unscoped count would be
+                // incoherent (e.g. "제외 0장" on a re-scan, or counts spanning
+                // ranges that don't match aiTotalCount shown above).
+                val scannedIds = photos.map { it.id }.toSet()
+                val analyzedInScan = aiRepository.getAnalyzedPhotoIds().count { it in scannedIds }
+
+                val shortlist = buildAiShortlist(BuildAiShortlistUseCase.DEFAULT_LIMIT, scannedIds)
                 aiShortlist = shortlist
-                aiRejectedItems = buildRejectedList(BuildAiShortlistUseCase.DEFAULT_LIMIT)
+                aiRejectedItems = buildRejectedList(
+                    shortlistLimit = BuildAiShortlistUseCase.DEFAULT_LIMIT,
+                    photoIds = scannedIds
+                )
                 aiApprovedIds.clear()
                 aiApprovedIds.addAll(shortlist.map { it.photo.id })
-                aiRejectedCount = (analyzedCount - shortlist.size).coerceAtLeast(0)
+                aiRejectedCount = (analyzedInScan - shortlist.size).coerceAtLeast(0)
 
                 aiRepository.getSession(sessionId)?.let { s ->
                     aiRepository.updateSession(
                         s.copy(
                             totalFoundCount = photos.size,
-                            analyzedCount = analyzedCount,
+                            analyzedCount = analyzedInScan,
                             shortlistedCount = shortlist.size,
                             rejectedCount = aiRejectedCount,
                             status = CurationStatus.COMPLETED,
@@ -355,15 +369,17 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
 
     /** Start a tournament from the parent-approved AI shortlist (spec §11.6). */
     fun startWorldCupFromShortlist(userSelectedSize: Int) {
-        val approved = aiShortlist.map { it.photo }.filter { aiApprovedIds.contains(it.id) }
-        if (approved.isEmpty()) return
-        // AI #1 = the highest-scoring recommendation (shortlist is sorted desc).
-        aiShortlist.firstOrNull()?.let {
+        val approvedItems = aiShortlist.filter { aiApprovedIds.contains(it.photo.id) }
+        if (approvedItems.isEmpty()) return
+        // AI #1 = the highest-scoring photo AMONG the approved set (shortlist is
+        // score-desc). Using the approved top means the "did AI agree?" result is
+        // meaningful even when the parent excludes the overall #1.
+        approvedItems.first().let {
             aiTopPickId = it.photo.id
             aiTopPickTitle = it.photo.title
         }
         bracketSizeSelected = userSelectedSize
-        launchTournament(primary = approved, fallback = allPhotos.value, userSelectedSize)
+        launchTournament(primary = approvedItems.map { it.photo }, fallback = allPhotos.value, userSelectedSize)
     }
 
     /**
@@ -402,6 +418,10 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
      * with [fallback] and finally looping if still short, then kick off play.
      */
     private fun launchTournament(primary: List<BabyPhoto>, fallback: List<BabyPhoto>, userSelectedSize: Int) {
+        // Guard: with no photos at all there is nothing to play — bail before
+        // setupMatchPair() would hit `.last()` on an empty contestant list.
+        if (primary.isEmpty() && fallback.isEmpty()) return
+
         val finalSelection = mutableListOf<BabyPhoto>()
         val primaryShuffled = primary.shuffled()
 

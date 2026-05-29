@@ -14,8 +14,24 @@ class BuildAiShortlistUseCase(
     private val babyRepository: BabyPhotoRepository,
     private val aiRepository: AiCurationRepository
 ) {
-    suspend operator fun invoke(limit: Int = DEFAULT_LIMIT): List<ShortlistItem> {
-        val top = aiRepository.getTopByScore(limit, PhotoAnalysisEntity.CURRENT_ANALYSIS_VERSION)
+    /**
+     * @param photoIds when non-null, restrict the shortlist to this scan's photos
+     *   (analysis rows accumulate across scans, so scoping keeps "this week's"
+     *   result coherent). When null, ranks across all analyzed photos.
+     */
+    suspend operator fun invoke(
+        limit: Int = DEFAULT_LIMIT,
+        photoIds: Set<Int>? = null,
+        version: Int = PhotoAnalysisEntity.CURRENT_ANALYSIS_VERSION
+    ): List<ShortlistItem> {
+        val top = if (photoIds == null) {
+            aiRepository.getTopByScore(limit, version)
+        } else {
+            aiRepository.getAllAnalyses(version)
+                .filter { it.photoId in photoIds }
+                .sortedByDescending { it.overallScore }
+                .take(limit)
+        }
         return top.mapNotNull { analysis ->
             babyRepository.getPhotoById(analysis.photoId)?.let { photo ->
                 ShortlistItem(photo = photo, analysis = analysis)

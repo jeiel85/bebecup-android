@@ -21,6 +21,10 @@ class ClusterDuplicatesUseCase(
         nowMillis: Long,
         version: Int = PhotoAnalysisEntity.CURRENT_ANALYSIS_VERSION
     ): Int {
+        // Clusters are recomputed each scan; clear the previous run so the
+        // photo_clusters table doesn't accumulate stale rows.
+        aiRepository.clearClusters()
+
         val analyses = aiRepository.getAllAnalyses(version)
         if (analyses.size < 2) return 0
 
