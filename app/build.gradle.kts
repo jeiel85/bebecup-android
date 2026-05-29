@@ -143,10 +143,17 @@ android {
     applicationId = "com.bebecup.app"
     minSdk = 24
     targetSdk = 36
-    versionCode = 2
-    versionName = "0.2.0"
+    versionCode = 3
+    versionName = "0.5.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+  }
+
+  // Make exported Room schemas available to instrumented migration tests.
+  sourceSets {
+    getByName("androidTest") {
+      assets.srcDirs(files("$projectDir/schemas"))
+    }
   }
 
   dependenciesInfo {
@@ -185,6 +192,11 @@ android {
     buildConfig = true
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
+}
+
+// Export Room schemas so we can author + verify explicit migrations.
+ksp {
+  arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 val defaultVersionName = android.defaultConfig.versionName
@@ -242,6 +254,7 @@ dependencies {
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.logging.interceptor)
   implementation(libs.moshi.kotlin)
+  implementation(libs.mlkit.face.detection)
   implementation(libs.okhttp)
   // implementation(libs.play.services.location)
   implementation(libs.retrofit)
@@ -261,6 +274,7 @@ dependencies {
   androidTestImplementation(libs.androidx.runner)
   debugImplementation(libs.androidx.compose.ui.test.manifest)
   debugImplementation(libs.androidx.compose.ui.tooling)
+  androidTestImplementation(libs.androidx.room.testing)
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
 }

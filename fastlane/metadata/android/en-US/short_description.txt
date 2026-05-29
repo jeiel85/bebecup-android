@@ -1,1 +1,1 @@
-A family photo tournament made from baby photos you choose
+On-device AI picks the week's best baby photos, cutting blurry & duplicate shots.

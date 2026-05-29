@@ -17,6 +17,8 @@ class BabyPhotoRepository(private val babyPhotoDao: BabyPhotoDao) {
 
     suspend fun getPhotoById(id: Int): BabyPhoto? = babyPhotoDao.getPhotoById(id)
 
+    suspend fun getPhotoByUri(uriString: String): BabyPhoto? = babyPhotoDao.getPhotoByUri(uriString)
+
     suspend fun clearSelectedBest() = babyPhotoDao.clearSelectedBest()
 
     suspend fun pruneMockPhotos() = babyPhotoDao.pruneMockPhotos()

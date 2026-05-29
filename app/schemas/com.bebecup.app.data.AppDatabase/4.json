@@ -1,0 +1,442 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 4,
+    "identityHash": "f94f69672d40bfd6be2ffc27699f3e19",
+    "entities": [
+      {
+        "tableName": "baby_photos",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `uriString` TEXT NOT NULL, `title` TEXT NOT NULL, `description` TEXT NOT NULL, `takenDate` TEXT NOT NULL, `isSelectedAsBest` INTEGER NOT NULL, `bestSelectedTimestamp` INTEGER NOT NULL, `winsCount` INTEGER NOT NULL, `matchesCount` INTEGER NOT NULL, `isInPrintCart` INTEGER NOT NULL, `printQuantity` INTEGER NOT NULL, `printSize` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "uriString",
+            "columnName": "uriString",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "description",
+            "columnName": "description",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "takenDate",
+            "columnName": "takenDate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isSelectedAsBest",
+            "columnName": "isSelectedAsBest",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bestSelectedTimestamp",
+            "columnName": "bestSelectedTimestamp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "winsCount",
+            "columnName": "winsCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "matchesCount",
+            "columnName": "matchesCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isInPrintCart",
+            "columnName": "isInPrintCart",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "printQuantity",
+            "columnName": "printQuantity",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "printSize",
+            "columnName": "printSize",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "tournament_records",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `winnerPhotoId` INTEGER NOT NULL, `winnerTitle` TEXT NOT NULL, `winnerUriString` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, `totalParticipants` INTEGER NOT NULL, `tournamentTitle` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "winnerPhotoId",
+            "columnName": "winnerPhotoId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "winnerTitle",
+            "columnName": "winnerTitle",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "winnerUriString",
+            "columnName": "winnerUriString",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp",
+            "columnName": "timestamp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalParticipants",
+            "columnName": "totalParticipants",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tournamentTitle",
+            "columnName": "tournamentTitle",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "photo_analysis",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `photoId` INTEGER NOT NULL, `analysisVersion` INTEGER NOT NULL, `blurScore` REAL NOT NULL, `faceDetected` INTEGER NOT NULL, `faceCount` INTEGER NOT NULL, `faceCenterScore` REAL NOT NULL, `eyeOpenScore` REAL NOT NULL, `expressionScore` REAL NOT NULL, `exposureScore` REAL NOT NULL, `compositionScore` REAL NOT NULL, `duplicatePenalty` REAL NOT NULL, `overallScore` REAL NOT NULL, `qualityGrade` TEXT NOT NULL, `dHash` INTEGER NOT NULL, `rejectReasonsJson` TEXT NOT NULL, `positiveReasonsJson` TEXT NOT NULL, `aiReasonKo` TEXT, `analyzedAtMillis` INTEGER NOT NULL, FOREIGN KEY(`photoId`) REFERENCES `baby_photos`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "photoId",
+            "columnName": "photoId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "analysisVersion",
+            "columnName": "analysisVersion",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "blurScore",
+            "columnName": "blurScore",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "faceDetected",
+            "columnName": "faceDetected",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "faceCount",
+            "columnName": "faceCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "faceCenterScore",
+            "columnName": "faceCenterScore",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "eyeOpenScore",
+            "columnName": "eyeOpenScore",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "expressionScore",
+            "columnName": "expressionScore",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "exposureScore",
+            "columnName": "exposureScore",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "compositionScore",
+            "columnName": "compositionScore",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "duplicatePenalty",
+            "columnName": "duplicatePenalty",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "overallScore",
+            "columnName": "overallScore",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "qualityGrade",
+            "columnName": "qualityGrade",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dHash",
+            "columnName": "dHash",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rejectReasonsJson",
+            "columnName": "rejectReasonsJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "positiveReasonsJson",
+            "columnName": "positiveReasonsJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "aiReasonKo",
+            "columnName": "aiReasonKo",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "analyzedAtMillis",
+            "columnName": "analyzedAtMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_photo_analysis_photoId",
+            "unique": false,
+            "columnNames": [
+              "photoId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_photo_analysis_photoId` ON `${TABLE_NAME}` (`photoId`)"
+          },
+          {
+            "name": "index_photo_analysis_overallScore",
+            "unique": false,
+            "columnNames": [
+              "overallScore"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_photo_analysis_overallScore` ON `${TABLE_NAME}` (`overallScore`)"
+          },
+          {
+            "name": "index_photo_analysis_analysisVersion",
+            "unique": false,
+            "columnNames": [
+              "analysisVersion"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_photo_analysis_analysisVersion` ON `${TABLE_NAME}` (`analysisVersion`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "baby_photos",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "photoId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "photo_clusters",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `clusterKey` TEXT NOT NULL, `representativePhotoId` INTEGER NOT NULL, `photoIdsJson` TEXT NOT NULL, `createdAtMillis` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "clusterKey",
+            "columnName": "clusterKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "representativePhotoId",
+            "columnName": "representativePhotoId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "photoIdsJson",
+            "columnName": "photoIdsJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtMillis",
+            "columnName": "createdAtMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_photo_clusters_clusterKey",
+            "unique": false,
+            "columnNames": [
+              "clusterKey"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_photo_clusters_clusterKey` ON `${TABLE_NAME}` (`clusterKey`)"
+          }
+        ]
+      },
+      {
+        "tableName": "ai_curation_sessions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `scanRangeStartMillis` INTEGER NOT NULL, `scanRangeEndMillis` INTEGER NOT NULL, `totalFoundCount` INTEGER NOT NULL, `analyzedCount` INTEGER NOT NULL, `rejectedCount` INTEGER NOT NULL, `shortlistedCount` INTEGER NOT NULL, `status` TEXT NOT NULL, `createdAtMillis` INTEGER NOT NULL, `completedAtMillis` INTEGER)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "scanRangeStartMillis",
+            "columnName": "scanRangeStartMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "scanRangeEndMillis",
+            "columnName": "scanRangeEndMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalFoundCount",
+            "columnName": "totalFoundCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "analyzedCount",
+            "columnName": "analyzedCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rejectedCount",
+            "columnName": "rejectedCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "shortlistedCount",
+            "columnName": "shortlistedCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtMillis",
+            "columnName": "createdAtMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "completedAtMillis",
+            "columnName": "completedAtMillis",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f94f69672d40bfd6be2ffc27699f3e19')"
+    ]
+  }
+}
