@@ -25,7 +25,7 @@ import org.robolectric.annotation.Config
  * schema, so any SQL mismatch fails this test.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
+@Config(sdk = [34])
 class MigrationTest {
 
     private val dbName = "baby_photo_worldcup_database"

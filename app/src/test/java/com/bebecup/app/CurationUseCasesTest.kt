@@ -30,7 +30,7 @@ import org.robolectric.annotation.Config
 
 /** Integration tests for the AI curation use cases over a real in-memory Room DB. */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
+@Config(sdk = [34])
 class CurationUseCasesTest {
 
     private lateinit var db: AppDatabase

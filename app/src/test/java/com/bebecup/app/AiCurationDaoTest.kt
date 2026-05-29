@@ -26,7 +26,7 @@ import org.robolectric.annotation.Config
  * "delete all local analysis data" path.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
+@Config(sdk = [34])
 class AiCurationDaoTest {
 
     private lateinit var db: AppDatabase
