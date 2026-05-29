@@ -1,0 +1,7 @@
+A new Bebecup: on-device AI now picks this week's best baby photos for you.
+
+- AI picks: recent photos analyzed to cut blurry/closed-eye shots and suggest the best
+- Friendly reasons for each pick; near-duplicates reduced to one shot
+- Approve, then start a family tournament; compare your winner with the AI's #1
+- All analysis stays on-device; photos are never uploaded
+- Wipe analysis data anytime in Settings

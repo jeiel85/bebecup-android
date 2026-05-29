@@ -2,6 +2,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!--
+      AI Gallery Scan mode reads recent images on-device. Photos are analyzed
+      locally and never uploaded. Manual Safe Mode uses the Photo Picker and
+      needs none of these permissions.
+    -->
+    <!-- Android 13+ (API 33+): granular image access. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- Android 14+ (API 34+): partial / selected-photo access. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+    <!-- Android 12L and below (API <= 32): legacy storage read for the scan. -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"

@@ -27,6 +27,9 @@ interface BabyPhotoDao {
     @Query("SELECT * FROM baby_photos WHERE id = :id LIMIT 1")
     suspend fun getPhotoById(id: Int): BabyPhoto?
 
+    @Query("SELECT * FROM baby_photos WHERE uriString = :uriString LIMIT 1")
+    suspend fun getPhotoByUri(uriString: String): BabyPhoto?
+
     @Query("UPDATE baby_photos SET isSelectedAsBest = 0")
     suspend fun clearSelectedBest()
 
