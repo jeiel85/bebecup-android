@@ -2,6 +2,7 @@ package com.bebecup.app.ui.viewmodel
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -11,6 +12,8 @@ import androidx.lifecycle.viewModelScope
 import com.bebecup.app.ai.AiModelAvailability
 import com.bebecup.app.ai.FaceQualityAnalyzer
 import com.bebecup.app.ai.PhotoQualityAnalyzer
+import com.bebecup.app.ai.model.HqModelManager
+import com.bebecup.app.ai.model.Models
 import com.bebecup.app.data.AppDatabase
 import com.bebecup.app.data.BabyPhoto
 import com.bebecup.app.data.BabyPhotoRepository
@@ -34,6 +37,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 sealed interface UiScreen {
+    object Onboarding : UiScreen
     object Dashboard : UiScreen
     object PhotoManager : UiScreen
     object BestShotSelector : UiScreen      // Activated by simulation of baby push notification alert
@@ -50,6 +54,14 @@ sealed interface UiScreen {
     object Settings : UiScreen
 }
 
+/** UI state for the optional high-quality curation model download (one-click). */
+sealed interface HqModelUiState {
+    object NotInstalled : HqModelUiState
+    data class Downloading(val progress: Float) : HqModelUiState
+    object Installed : HqModelUiState
+    data class Failed(val message: String) : HqModelUiState
+}
+
 class BabyCupViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: BabyPhotoRepository
@@ -62,6 +74,10 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
     private val explainTopPhotos: ExplainTopPhotosUseCase
     private val buildAiShortlist: BuildAiShortlistUseCase
     private val buildRejectedList: BuildRejectedListUseCase
+
+    // Optional, downloaded-on-demand high-quality curation model.
+    private val hqModelManager = HqModelManager(application, Models.AESTHETIC)
+    private var hqDownloadJob: kotlinx.coroutines.Job? = null
 
     // Database flows
     val allPhotos: StateFlow<List<BabyPhoto>>
@@ -127,6 +143,12 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
         prefs.edit().putBoolean(PREF_EXCLUDE_BLURRY, enabled).apply()
     }
 
+    /** First-launch onboarding shown once, then never again (spec §11.0). */
+    fun completeOnboarding() {
+        prefs.edit().putBoolean(PREF_ONBOARDING_SEEN, true).apply()
+        navigateTo(UiScreen.Dashboard)
+    }
+
     // --- AI curation transient state ---
     var aiIsScanning by mutableStateOf(false)
     var aiProgressStep by mutableStateOf("")
@@ -137,6 +159,14 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
     var aiShortlist by mutableStateOf<List<ShortlistItem>>(emptyList())
     var aiRejectedItems by mutableStateOf<List<ShortlistItem>>(emptyList())
     val aiApprovedIds = mutableStateListOf<Int>()
+
+    // High-quality model download state (one-click, optional).
+    var hqModelState by mutableStateOf<HqModelUiState>(
+        if (hqModelManager.isInstalled()) HqModelUiState.Installed else HqModelUiState.NotInstalled
+    )
+        private set
+    val hqModelApproxBytes: Long get() = hqModelManager.approxBytes
+    val hqModelConfigured: Boolean get() = hqModelManager.isConfigured
 
     // AI #1 pick for the current tournament (null when tournament isn't AI-sourced).
     var aiTopPickId by mutableStateOf<Int?>(null)
@@ -165,6 +195,11 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
         )
         buildAiShortlist = BuildAiShortlistUseCase(repository, aiRepository)
         buildRejectedList = BuildRejectedListUseCase(repository, aiRepository)
+
+        // First launch lands on onboarding; every launch after goes straight home.
+        if (!prefs.getBoolean(PREF_ONBOARDING_SEEN, false)) {
+            currentScreen = UiScreen.Onboarding
+        }
 
         allPhotos = repository.allPhotos.stateIn(
             scope = viewModelScope,
@@ -350,6 +385,7 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
                 }
                 navigateTo(UiScreen.AiCurationResult)
             } catch (e: Exception) {
+                Log.e("AiCuration", "startAiCuration failed", e)
                 if (sessionId != 0) {
                     aiRepository.getSession(sessionId)?.let { s ->
                         aiRepository.updateSession(s.copy(status = CurationStatus.FAILED))
@@ -388,6 +424,34 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
      */
     fun aiMatchForWinner(winnerId: Int): Boolean? =
         comparePicks(winnerId, aiTopPickId)?.matched
+
+    /**
+     * One-click download of the optional high-quality curation model. Streams
+     * to internal storage with live progress; the model never leaves the device.
+     */
+    fun downloadHqModel() {
+        if (hqModelState is HqModelUiState.Downloading) return
+        hqDownloadJob = viewModelScope.launch {
+            hqModelState = HqModelUiState.Downloading(0f)
+            try {
+                hqModelManager.download { progress ->
+                    hqModelState = HqModelUiState.Downloading(progress)
+                }
+                hqModelState = HqModelUiState.Installed
+            } catch (e: Exception) {
+                Log.e("HqModel", "download failed", e)
+                hqModelManager.delete()
+                hqModelState = HqModelUiState.Failed(e.message ?: "다운로드에 실패했어요")
+            }
+        }
+    }
+
+    /** Remove the downloaded model and reclaim the storage. */
+    fun deleteHqModel() {
+        hqDownloadJob?.cancel()
+        hqModelManager.delete()
+        hqModelState = HqModelUiState.NotInstalled
+    }
 
     /** Privacy (spec §9.3): wipe all on-device analysis/clusters/sessions. */
     fun deleteAllAnalysisData() {
@@ -582,10 +646,11 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
         private const val PREF_SLEEPING = "ai_sleeping_mode"
         private const val PREF_SIMILAR_ONLY = "ai_similar_only"
         private const val PREF_EXCLUDE_BLURRY = "ai_exclude_blurry"
+        private const val PREF_ONBOARDING_SEEN = "onboarding_seen"
 
-        const val STEP_SCAN = "최근 사진을 찾는 중이에요"
-        const val STEP_ANALYZE = "흔들림·얼굴·눈 상태를 확인하는 중이에요"
-        const val STEP_CLUSTER = "비슷한 사진을 묶는 중이에요"
-        const val STEP_SHORTLIST = "베스트 후보를 정리하는 중이에요"
+        const val STEP_SCAN = "베베컵이 최근 사진을 찾는 중이에요"
+        const val STEP_ANALYZE = "베베컵이 흔들림·표정·눈을 살펴보는 중이에요"
+        const val STEP_CLUSTER = "베베컵이 비슷한 사진을 묶는 중이에요"
+        const val STEP_SHORTLIST = "베베컵이 베스트 후보를 정리하는 중이에요"
     }
 }

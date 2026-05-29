@@ -34,9 +34,11 @@ class PhotoMetadataReader(private val context: Context) {
 
     private fun readBounds(uri: Uri): Pair<Int, Int>? {
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            BitmapFactory.decodeStream(input, null, options)
-        } ?: return null
+        // In bounds-only mode decodeStream always returns null (it only fills
+        // options.outWidth/outHeight), so the stream must be null-checked on its
+        // own — not via the decode result.
+        val input = context.contentResolver.openInputStream(uri) ?: return null
+        input.use { BitmapFactory.decodeStream(it, null, options) }
         if (options.outWidth <= 0 || options.outHeight <= 0) return null
         return options.outWidth to options.outHeight
     }

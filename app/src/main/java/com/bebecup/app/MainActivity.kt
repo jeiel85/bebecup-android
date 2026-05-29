@@ -28,6 +28,7 @@ import com.bebecup.app.ui.ai.AiScanProgressScreen
 import com.bebecup.app.ui.ai.AiScanSetupScreen
 import com.bebecup.app.ui.dashboard.DashboardView
 import com.bebecup.app.ui.history.TournamentHistoryListView
+import com.bebecup.app.ui.onboarding.OnboardingScreen
 import com.bebecup.app.ui.photo.BestShotSelectorView
 import com.bebecup.app.ui.photo.PhotoManagerView
 import com.bebecup.app.ui.print.PrintCartView
@@ -82,6 +83,7 @@ fun MainContentScreen(
                 label = "screen_transition"
             ) { screen ->
                 when (screen) {
+                    is UiScreen.Onboarding -> OnboardingScreen(viewModel = viewModel)
                     is UiScreen.Dashboard -> DashboardView(
                         viewModel = viewModel,
                         allPhotos = allPhotos,

@@ -55,7 +55,7 @@ fun AiCurationResultScreen(viewModel: BabyCupViewModel) {
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column {
-                Text("AI 엄선 결과", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("베베컵 추천 결과", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Text(
                     "총 ${viewModel.aiTotalCount}장 중 ${shortlist.size}장을 추천했어요",
                     fontSize = 11.sp,
@@ -91,13 +91,13 @@ fun AiCurationResultScreen(viewModel: BabyCupViewModel) {
                     Text("추천할 만한 사진을 찾지 못했어요.", fontSize = 13.sp, color = Color.Gray)
                     Text("기간을 넓혀 다시 시도해보세요.", fontSize = 11.sp, color = Color.Gray)
                     Button(onClick = { viewModel.navigateTo(UiScreen.AiScanSetup) }) {
-                        Text("다시 엄선하기", fontSize = 12.sp)
+                        Text("다시 골라보기", fontSize = 12.sp)
                     }
                 }
             }
         } else {
             Text(
-                "AI 추천 베스트 — 추천에서 빼고 싶은 사진은 '제외'를 눌러주세요.",
+                "베베컵이 고른 베스트예요 — 빼고 싶은 사진은 '제외'를 눌러주세요.",
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 modifier = Modifier.padding(16.dp)
@@ -164,7 +164,7 @@ fun AiCurationResultScreen(viewModel: BabyCupViewModel) {
                         Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null)
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            if (approvedCount >= 2) "AI 추천 사진으로 월드컵 시작 (${bracket}강)"
+                            if (approvedCount >= 2) "고른 사진으로 월드컵 시작 (${bracket}강)"
                             else "최소 2장을 승인해주세요",
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 14.sp

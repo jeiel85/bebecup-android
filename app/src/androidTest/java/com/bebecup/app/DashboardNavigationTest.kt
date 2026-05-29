@@ -21,8 +21,24 @@ class DashboardNavigationTest {
     @get:Rule
     val composeRule = createAndroidComposeRule<MainActivity>()
 
+    /**
+     * First launch lands on onboarding; dismiss it so the dashboard is reachable.
+     * No-op on devices where onboarding was already completed.
+     */
+    private fun skipOnboardingIfPresent() {
+        val onboarding = composeRule.onAllNodesWithTag("onboarding_skip_button").fetchSemanticsNodes()
+        if (onboarding.isNotEmpty()) {
+            composeRule.onNodeWithTag("onboarding_skip_button").performClick()
+            composeRule.waitUntil(timeoutMillis = 5_000) {
+                composeRule.onAllNodesWithTag("main_scaffold").fetchSemanticsNodes().isNotEmpty() &&
+                    composeRule.onAllNodesWithTag("onboarding_view").fetchSemanticsNodes().isEmpty()
+            }
+        }
+    }
+
     @Test
     fun dashboard_launches_and_navigates_to_ai_scan_setup() {
+        skipOnboardingIfPresent()
         // Dashboard renders with the primary AI curation CTA.
         composeRule.onNodeWithTag("main_scaffold").assertIsDisplayed()
         composeRule.onNodeWithTag("goto_ai_curation_button").assertIsDisplayed()
@@ -38,6 +54,7 @@ class DashboardNavigationTest {
 
     @Test
     fun dashboard_navigates_to_settings() {
+        skipOnboardingIfPresent()
         composeRule.onNodeWithTag("goto_settings_button").performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodesWithTag("settings_view").fetchSemanticsNodes().isNotEmpty()

@@ -32,12 +32,17 @@ class AnalyzePhotoQualityUseCase(
 
         var done = 0
         for (photo in pending) {
-            val analysis = analyzer.analyze(
-                photoId = photo.id,
-                uri = Uri.parse(photo.uriString),
-                sleepingModeEnabled = sleepingModeEnabled,
-                nowMillis = nowMillis
-            )
+            // A single undecodable/locked image must not abort the whole scan.
+            val analysis = try {
+                analyzer.analyze(
+                    photoId = photo.id,
+                    uri = Uri.parse(photo.uriString),
+                    sleepingModeEnabled = sleepingModeEnabled,
+                    nowMillis = nowMillis
+                )
+            } catch (e: Exception) {
+                null
+            }
             if (analysis != null) {
                 aiRepository.saveAnalysis(analysis)
                 done++

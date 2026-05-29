@@ -75,11 +75,11 @@ fun AiScanSetupScreen(viewModel: BabyCupViewModel) {
                 Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "뒤로")
             }
             Spacer(modifier = Modifier.width(12.dp))
-            Text("AI 아기사진 엄선", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text("베베컵 사진 엄선", fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
 
         Text(
-            text = "AI가 이번 주 베스트 아기사진을 골라드릴게요",
+            text = "베베컵이 이번 주 베스트 아기사진을 골라드릴게요",
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
@@ -135,7 +135,7 @@ fun AiScanSetupScreen(viewModel: BabyCupViewModel) {
 
         // Privacy trust copy (spec §9.1)
         Text(
-            text = "사진은 외부로 전송되지 않고 기기 안에서만 분석돼요.\nAI 추천은 참고용이며, 최종 선택은 언제나 부모님이 결정해요.",
+            text = "베베컵은 사진을 기기 안에서만 살펴봐요. 사진은 밖으로 나가지 않아요.\n추천은 참고용이고, 마지막 선택은 언제나 부모님 몫이에요.",
             fontSize = 11.sp,
             lineHeight = 16.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
@@ -150,14 +150,14 @@ fun AiScanSetupScreen(viewModel: BabyCupViewModel) {
             shape = RoundedCornerShape(14.dp),
             enabled = !viewModel.aiIsScanning
         ) {
-            Text("AI 엄선 시작", fontWeight = FontWeight.ExtraBold)
+            Text("베베컵에게 맡기기", fontWeight = FontWeight.ExtraBold)
         }
 
         TextButton(
             onClick = { showDeleteConfirm = true },
             modifier = Modifier.align(Alignment.CenterHorizontally)
         ) {
-            Text("기기에 저장된 AI 분석 데이터 전체 삭제", fontSize = 11.sp, color = Color.Gray)
+            Text("기기에 저장된 분석 데이터 전체 삭제", fontSize = 11.sp, color = Color.Gray)
         }
     }
 
@@ -167,7 +167,7 @@ fun AiScanSetupScreen(viewModel: BabyCupViewModel) {
             title = { Text("사진 접근 권한이 필요해요") },
             text = {
                 Text(
-                    "AI 엄선은 최근 사진을 기기 안에서만 분석합니다. 사진은 외부로 전송되지 않아요. " +
+                    "베베컵은 최근 사진을 기기 안에서만 살펴봐요. 사진은 밖으로 나가지 않아요. " +
                         "권한 없이 진행하려면 사진첩에서 직접 골라 월드컵을 시작할 수도 있어요."
                 )
             },
@@ -180,7 +180,7 @@ fun AiScanSetupScreen(viewModel: BabyCupViewModel) {
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("AI 분석 데이터 삭제") },
+            title = { Text("분석 데이터 삭제") },
             text = { Text("기기에 저장된 분석 결과·묶음·세션 기록을 모두 지웁니다. 사진 원본은 삭제되지 않아요.") },
             confirmButton = {
                 Button(onClick = {

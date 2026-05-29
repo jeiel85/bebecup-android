@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bebecup.app.BuildConfig
 import com.bebecup.app.ui.viewmodel.BabyCupViewModel
+import com.bebecup.app.ui.viewmodel.HqModelUiState
 import com.bebecup.app.ui.viewmodel.UiScreen
 
 // Settings: AI curation defaults + privacy controls (spec §9).
@@ -47,8 +48,8 @@ fun SettingsScreen(viewModel: BabyCupViewModel) {
             Text("설정", fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
 
-        // --- AI 엄선 기본값 ---
-        SectionTitle("AI 엄선 기본값")
+        // --- 베베컵 엄선 기본값 ---
+        SectionTitle("베베컵 엄선 기본값")
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(modifier = Modifier.padding(8.dp)) {
                 Text("기본 스캔 기간", fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp))
@@ -83,8 +84,8 @@ fun SettingsScreen(viewModel: BabyCupViewModel) {
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    "사진 분석은 기기 안에서만 진행되며, 사진은 외부 서버로 업로드되지 않아요. " +
-                        "부모가 승인하지 않은 사진은 공유되지 않아요.",
+                    "베베컵은 사진을 기기 안에서만 살펴봐요. 사진은 외부 서버로 올라가지 않고, " +
+                        "부모님이 승인하지 않은 사진은 공유되지 않아요.",
                     fontSize = 11.sp,
                     lineHeight = 16.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -93,12 +94,18 @@ fun SettingsScreen(viewModel: BabyCupViewModel) {
                     onClick = { showDeleteConfirm = true },
                     modifier = Modifier.fillMaxWidth().testTag("settings_delete_data_btn")
                 ) {
-                    Text("기기에 저장된 AI 분석 데이터 전체 삭제", fontSize = 12.sp)
+                    Text("기기에 저장된 분석 데이터 전체 삭제", fontSize = 12.sp)
                 }
                 if (deleted) {
                     Text("분석 데이터를 모두 삭제했어요.", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
                 }
             }
+        }
+
+        // --- 고화질 엄선 모델 (개발 중: 다운로드 메커니즘만, 아직 엄선엔 미사용) ---
+        if (BuildConfig.DEBUG) {
+            SectionTitle("고화질 엄선 모델 (실험)")
+            HqModelCard(viewModel)
         }
 
         // --- 앱 정보 ---
@@ -114,7 +121,7 @@ fun SettingsScreen(viewModel: BabyCupViewModel) {
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("AI 분석 데이터 삭제") },
+            title = { Text("분석 데이터 삭제") },
             text = { Text("기기에 저장된 분석 결과·묶음·세션 기록을 모두 지웁니다. 사진 원본은 삭제되지 않아요.") },
             confirmButton = {
                 Button(onClick = {
@@ -127,6 +134,65 @@ fun SettingsScreen(viewModel: BabyCupViewModel) {
                 TextButton(onClick = { showDeleteConfirm = false }) { Text("취소") }
             }
         )
+    }
+}
+
+@Composable
+private fun HqModelCard(viewModel: BabyCupViewModel) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                "더 똑똑한 엄선을 위해 고화질 분석 모델을 한 번만 내려받아요. " +
+                    "받은 모델도 기기 안에서만 동작하고, 사진은 여전히 밖으로 나가지 않아요.",
+                fontSize = 11.sp,
+                lineHeight = 16.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+
+            val sizeLabel = viewModel.hqModelApproxBytes
+                .takeIf { it > 0 }
+                ?.let { " (약 ${it / (1024 * 1024)}MB · Wi-Fi 권장)" }
+                ?: ""
+
+            when (val state = viewModel.hqModelState) {
+                is HqModelUiState.NotInstalled -> {
+                    Button(
+                        onClick = { viewModel.downloadHqModel() },
+                        enabled = viewModel.hqModelConfigured,
+                        modifier = Modifier.fillMaxWidth().testTag("hq_model_download_btn")
+                    ) { Text("고화질 모델 받기$sizeLabel", fontSize = 13.sp) }
+                    if (!viewModel.hqModelConfigured) {
+                        Text(
+                            "아직 모델이 준비되지 않았어요 (개발 중).",
+                            fontSize = 10.sp,
+                            color = Color.Gray
+                        )
+                    }
+                }
+                is HqModelUiState.Downloading -> {
+                    LinearProgressIndicator(
+                        progress = { state.progress },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text("내려받는 중… ${(state.progress * 100).toInt()}%", fontSize = 11.sp, color = Color.Gray)
+                }
+                is HqModelUiState.Installed -> {
+                    Text("고화질 모델이 설치됐어요.", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                    OutlinedButton(
+                        onClick = { viewModel.deleteHqModel() },
+                        modifier = Modifier.fillMaxWidth().testTag("hq_model_delete_btn")
+                    ) { Text("모델 삭제", fontSize = 12.sp) }
+                }
+                is HqModelUiState.Failed -> {
+                    Text("받지 못했어요: ${state.message}", fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
+                    Button(
+                        onClick = { viewModel.downloadHqModel() },
+                        enabled = viewModel.hqModelConfigured,
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("다시 시도", fontSize = 13.sp) }
+                }
+            }
+        }
     }
 }
 

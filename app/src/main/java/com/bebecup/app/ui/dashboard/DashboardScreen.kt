@@ -217,9 +217,9 @@ fun DashboardView(
                             Icon(Icons.Default.Star, contentDescription = null, tint = Color.White)
                         }
                         Column {
-                            Text("AI 아기사진 엄선 ✨", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                            Text("베베컵이 골라주는 베스트 ✨", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
                             Text(
-                                "흔들리거나 비슷한 사진은 줄이고 베스트만 골라드려요",
+                                "흔들리거나 비슷한 컷은 빼고, 베스트만 쏙 골라드려요",
                                 fontSize = 11.sp,
                                 color = Color.White.copy(alpha = 0.85f)
                             )
@@ -234,7 +234,7 @@ fun DashboardView(
                         colors = ButtonDefaults.buttonColors(containerColor = Color.White),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("이번 주 아기사진 AI 엄선하기", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)
+                        Text("이번 주 베스트 골라보기", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)
                     }
                 }
             }

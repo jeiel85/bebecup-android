@@ -65,7 +65,7 @@ fun AiScanProgressScreen(viewModel: BabyCupViewModel) {
                     tint = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "사진을 외부로 보내지 않고 기기 안에서만 분석 중이에요.",
+                    text = "베베컵이 사진을 밖으로 보내지 않고, 기기 안에서만 살펴보는 중이에요.",
                     fontSize = 12.sp,
                     lineHeight = 17.sp,
                     color = Color.DarkGray
