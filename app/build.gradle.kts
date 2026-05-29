@@ -101,7 +101,11 @@ abstract class ExportReleaseToDesktopTask : DefaultTask() {
       throw GradleException("Release AAB not found at ${aab.absolutePath}. Check the bundleRelease log.")
     }
     val versionName = releaseVersionName.get()
-    val aabTarget = File(desktop, "bebecup-v$versionName.aab")
+    val versionCode = releaseVersionCode.get()
+    // Per the user's cross-project convention: artifacts land flat in Desktop\Build\
+    // named <project>-v<semver>-vc<code> so multiple builds never collide.
+    val buildDir = File(desktop, "Build").apply { mkdirs() }
+    val aabTarget = File(buildDir, "bebecup-v$versionName-vc$versionCode.aab")
     aab.copyTo(aabTarget, overwrite = true)
     logger.lifecycle("Wrote ${aabTarget.absolutePath} (${aab.length()} bytes)")
 
@@ -120,7 +124,7 @@ abstract class ExportReleaseToDesktopTask : DefaultTask() {
       }
     }
 
-    val txtTarget = File(desktop, "bebecup-v$versionName-release-notes.txt")
+    val txtTarget = File(buildDir, "bebecup-v$versionName-vc$versionCode-release-notes.txt")
     txtTarget.writeText(
       buildString {
         append("<ko-KR>\n")
@@ -143,8 +147,8 @@ android {
     applicationId = "com.bebecup.app"
     minSdk = 24
     targetSdk = 36
-    versionCode = 3
-    versionName = "0.5.0"
+    versionCode = 4
+    versionName = "0.6.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

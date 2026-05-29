@@ -8,6 +8,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +20,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bebecup.app.ui.viewmodel.BabyCupViewModel
+import com.bebecup.app.ui.viewmodel.HqModelUiState
 import kotlinx.coroutines.launch
 
 /**
@@ -51,6 +53,45 @@ private val onboardingPages = listOf(
         body = "최근 사진을 살펴보려면\n사진 접근 권한이 필요해요.\n원하지 않으면 사진첩에서 직접 골라도 좋아요."
     )
 )
+
+/**
+ * In-onboarding offer to fetch the optional high-quality curation model — so the
+ * heavy model is downloaded after install (not bundled into the APK). Parents can
+ * skip and grab it later from Settings. Shown only when a model is configured.
+ */
+@Composable
+private fun HqModelOffer(viewModel: BabyCupViewModel) {
+    val sizeLabel = viewModel.hqModelApproxBytes
+        .takeIf { it > 0 }
+        ?.let { " (약 ${it / (1024 * 1024)}MB · Wi-Fi 권장)" }
+        ?: ""
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            "더 똑똑하게 골라드릴까요? 고화질 분석 모델을 한 번만 받으면 더 정확해요. " +
+                "받은 모델도 기기 안에서만 동작해요.",
+            fontSize = 12.sp,
+            lineHeight = 17.sp,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+        )
+        when (val state = viewModel.hqModelState) {
+            is HqModelUiState.Downloading -> {
+                LinearProgressIndicator(progress = { state.progress }, modifier = Modifier.fillMaxWidth())
+                Text("내려받는 중… ${(state.progress * 100).toInt()}%", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+            }
+            is HqModelUiState.Installed ->
+                Text("고화질 모델이 준비됐어요 ✨", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+            else -> OutlinedButton(
+                onClick = { viewModel.downloadHqModel() },
+                modifier = Modifier.fillMaxWidth().testTag("onboarding_hq_download_button")
+            ) { Text("고화질 모델 받기$sizeLabel", fontSize = 13.sp) }
+        }
+    }
+}
 
 @Composable
 fun OnboardingScreen(viewModel: BabyCupViewModel) {
@@ -110,6 +151,13 @@ fun OnboardingScreen(viewModel: BabyCupViewModel) {
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
                 )
+
+                // Optional one-click model download, offered on the last page only
+                // when a model is actually hosted. Dormant (hidden) until then.
+                if (page == onboardingPages.lastIndex && viewModel.hqModelConfigured) {
+                    Spacer(modifier = Modifier.height(28.dp))
+                    HqModelOffer(viewModel)
+                }
             }
         }
 

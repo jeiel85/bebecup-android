@@ -102,9 +102,15 @@ fun SettingsScreen(viewModel: BabyCupViewModel) {
             }
         }
 
-        // --- 고화질 엄선 모델 (개발 중: 다운로드 메커니즘만, 아직 엄선엔 미사용) ---
-        if (BuildConfig.DEBUG) {
-            SectionTitle("고화질 엄선 모델 (실험)")
+        // --- 고화질 엄선 모델 ---
+        // Visible once a model is actually hosted (configured) or already on the
+        // device. Stays hidden in builds where no model is wired yet, so users
+        // never see a download that does nothing. Debug builds always show it.
+        val showHqModel = BuildConfig.DEBUG ||
+            viewModel.hqModelConfigured ||
+            viewModel.hqModelState is HqModelUiState.Installed
+        if (showHqModel) {
+            SectionTitle("고화질 엄선 모델")
             HqModelCard(viewModel)
         }
 

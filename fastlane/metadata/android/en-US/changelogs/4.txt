@@ -1,0 +1,6 @@
+Say hello to a friendlier Bebecup 🧡
+
+- A first-run intro shows what Bebecup does and how your photos stay private
+- Bebecup now picks this week's best baby photos more reliably
+- Photos are always analyzed on your device, and never leave it without your consent
+- Warmer, clearer wording throughout the app
