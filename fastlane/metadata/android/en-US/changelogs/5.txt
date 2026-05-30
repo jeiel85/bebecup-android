@@ -1,0 +1,5 @@
+The back button now steps back one screen at a time 🔙
+
+- Pressing back returns to the previous screen instead of instantly closing the app
+- Step back one level at a time from photo sorting, the baby photo world cup, the print cart, and every other screen
+- Only the home screen closes the app when you press back

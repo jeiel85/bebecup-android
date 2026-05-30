@@ -2,6 +2,7 @@ package com.bebecup.app
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
@@ -62,6 +63,12 @@ fun MainContentScreen(
     val bestPhotos by viewModel.bestPhotos.collectAsState()
     val printCartPhotos by viewModel.printCartPhotos.collectAsState()
     val tournaments by viewModel.tournaments.collectAsState()
+
+    // Honor each navigation depth: pop in-app while there's a back target, and
+    // only fall through to the OS (exiting the app) at the root screen.
+    BackHandler(enabled = viewModel.canNavigateBack) {
+        viewModel.navigateBack()
+    }
 
     Scaffold(
         modifier = Modifier

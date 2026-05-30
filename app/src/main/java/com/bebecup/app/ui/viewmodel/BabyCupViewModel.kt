@@ -89,6 +89,13 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
     var currentScreen by mutableStateOf<UiScreen>(UiScreen.Dashboard)
         private set
 
+    // Back stack of screens *behind* [currentScreen] (deepest last). The OS back
+    // button pops this so each depth is honored instead of leaving the app.
+    private val backStack = mutableStateListOf<UiScreen>()
+
+    /** True when the OS back button should pop in-app instead of exiting. */
+    val canNavigateBack: Boolean get() = backStack.isNotEmpty()
+
     // Best-shot reminder state
     var showNotificationAlert by mutableStateOf(false)
     var alertDismissedTime by mutableStateOf(0L)
@@ -146,7 +153,7 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
     /** First-launch onboarding shown once, then never again (spec §11.0). */
     fun completeOnboarding() {
         prefs.edit().putBoolean(PREF_ONBOARDING_SEEN, true).apply()
-        navigateTo(UiScreen.Dashboard)
+        navigateHome()
     }
 
     // --- AI curation transient state ---
@@ -233,8 +240,60 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
     }
 
     // Navigation trigger methods
+
+    /**
+     * Forward navigation. If [screen] already sits in the back stack (e.g. the
+     * "Dashboard" home button while several screens deep), pop back to it rather
+     * than stacking a duplicate. Otherwise push the current screen and descend.
+     */
     fun navigateTo(screen: UiScreen) {
+        if (screen == currentScreen) return
+        val existingIndex = backStack.indexOfLast { it == screen }
+        if (existingIndex >= 0) {
+            // Pop everything above the existing entry, then land on it.
+            while (backStack.size > existingIndex) {
+                backStack.removeAt(backStack.size - 1)
+            }
+        } else {
+            backStack.add(currentScreen)
+        }
         currentScreen = screen
+    }
+
+    /**
+     * Replace the current screen without changing depth — for transient
+     * hand-offs (e.g. scan progress → result) where backing into the previous
+     * screen would be meaningless.
+     */
+    private fun navigateReplace(screen: UiScreen) {
+        currentScreen = screen
+    }
+
+    /** Clear the stack and return to the home screen (no back target). */
+    private fun navigateHome() {
+        backStack.clear()
+        currentScreen = UiScreen.Dashboard
+    }
+
+    /**
+     * Land on [screen] as a fresh top with only Dashboard beneath it. Used for
+     * terminal screens (e.g. tournament winner) so back goes home rather than
+     * to a consumed mid-flow screen.
+     */
+    private fun navigateAsRoot(screen: UiScreen) {
+        backStack.clear()
+        backStack.add(UiScreen.Dashboard)
+        currentScreen = screen
+    }
+
+    /**
+     * Pop one level. Returns false when already at the root so the caller can
+     * let the OS finish the activity (i.e. leave the app).
+     */
+    fun navigateBack(): Boolean {
+        if (backStack.isEmpty()) return false
+        currentScreen = backStack.removeAt(backStack.size - 1)
+        return true
     }
 
     fun dismissNotificationAlert() {
@@ -290,7 +349,7 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
                 }
             }
             dismissNotificationAlert()
-            navigateTo(UiScreen.Dashboard)
+            navigateHome()
         }
     }
 
@@ -314,7 +373,9 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
             aiTopPickId = null
             aiTopPickTitle = null
             aiProgressStep = STEP_SCAN
-            navigateTo(UiScreen.AiScanProgress)
+            // Replace setup with progress: backing into the setup screen mid-scan
+            // (or into a finished progress screen) is meaningless.
+            navigateReplace(UiScreen.AiScanProgress)
 
             val endMillis = System.currentTimeMillis()
             val startMillis = endMillis - aiScanRangeDays.toLong() * 24L * 60L * 60L * 1000L
@@ -383,7 +444,11 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
                         )
                     )
                 }
-                navigateTo(UiScreen.AiCurationResult)
+                // Only advance if the user is still watching the scan — they may
+                // have backed out to the dashboard while it ran.
+                if (currentScreen is UiScreen.AiScanProgress) {
+                    navigateReplace(UiScreen.AiCurationResult)
+                }
             } catch (e: Exception) {
                 Log.e("AiCuration", "startAiCuration failed", e)
                 if (sessionId != 0) {
@@ -391,7 +456,9 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
                         aiRepository.updateSession(s.copy(status = CurationStatus.FAILED))
                     }
                 }
-                navigateTo(UiScreen.Dashboard)
+                if (currentScreen is UiScreen.AiScanProgress) {
+                    navigateHome()
+                }
             } finally {
                 aiIsScanning = false
             }
@@ -587,7 +654,9 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
             )
             repository.insertTournament(record)
 
-            navigateTo(UiScreen.WorldCupWinner(championPhotoObj, bracketSizeSelected))
+            // Tournament is over — land on the winner with only home beneath it,
+            // so back returns to the dashboard rather than the consumed play screen.
+            navigateAsRoot(UiScreen.WorldCupWinner(championPhotoObj, bracketSizeSelected))
         }
     }
 
