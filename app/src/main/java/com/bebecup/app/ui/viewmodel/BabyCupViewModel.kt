@@ -522,18 +522,26 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
 
     private fun declareChampion(winner: BabyPhoto, bracketSize: Int) {
         engine = null
+        // Show the winner right away; recording it must not hold the screen
+        // hostage to disk I/O (a slow device would sit on a blank play screen).
+        navigateAsRoot(UiScreen.WorldCupWinner(winner.copy(winsCount = winner.winsCount + 1), bracketSize))
         viewModelScope.launch {
-            repository.incrementChampionships(winner.id)
-            repository.insertTournament(
-                TournamentRecord(
-                    winnerPhotoId = winner.id,
-                    winnerTitle = winner.title,
-                    winnerUriString = winner.uriString,
-                    totalParticipants = bracketSize,
-                    tournamentTitle = "베스트 아기사진 이상형 월드컵"
+            try {
+                repository.incrementChampionships(winner.id)
+                repository.insertTournament(
+                    TournamentRecord(
+                        winnerPhotoId = winner.id,
+                        winnerTitle = winner.title,
+                        winnerUriString = winner.uriString,
+                        totalParticipants = bracketSize,
+                        tournamentTitle = "베스트 아기사진 이상형 월드컵"
+                    )
                 )
-            )
-            navigateAsRoot(UiScreen.WorldCupWinner(winner.copy(winsCount = winner.winsCount + 1), bracketSize))
+            } catch (e: Exception) {
+                // The family still sees their winner; only the hall-of-fame
+                // entry is missing, so log it rather than interrupt them.
+                Log.e(TAG, "could not record the tournament result", e)
+            }
         }
     }
 

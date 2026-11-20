@@ -72,25 +72,24 @@ app/build/outputs/mapping/release/mapping.txt
 
 ## Play Console Export
 
-Play 제출 파일을 바탕화면으로 내보낸다.
+바탕화면으로 내보내지 않는다(2026-11-20). 태그 `vX.Y.Z`의 릴리스 워크플로가 끝나면:
 
 ```bash
-./gradlew :app:exportReleaseToDesktop
+scripts/play-bundle.sh X.Y.Z
 ```
 
-생성 파일:
+- 워크플로 산출물 `bebecup-release-aab`를 받아 서명 인증서가 위 업로드 키 SHA-256과 같은지 확인한다.
+- `dist/bebecup-play-X.Y.Z-vc<versionCode>-<커밋>.aab`와 `…-release-notes.txt`(아래 원천 파일을 `<ko-KR>`/`<en-US>` 블록으로 묶은 것)를 만들고, `dist/play-builds.log`에 시각·버전·커밋·SHA-256을 남긴다. 같은 이름이 있으면 멈춘다.
+- 업로드 키 비밀번호가 GitHub Secrets에만 있어(issue #4) 로컬에서는 서명된 AAB를 만들 수 없다.
 
-- `bebecup-vX.Y.Z.aab`
-- `bebecup-vX.Y.Z-release-notes.txt`
-
-릴리즈 노트 원천 파일:
+릴리즈 노트 원천 파일(Play Console locale별 500자 제한):
 
 ```text
 fastlane/metadata/android/ko-KR/changelogs/<versionCode>.txt
 fastlane/metadata/android/en-US/changelogs/<versionCode>.txt
 ```
 
-각 locale의 Play Console 릴리즈 노트는 500자 제한이 있으므로 Gradle task가 초과 여부를 검사한다.
+업로드: Play Console(`pedaiah85@gmail.com` → 개발자 계정 EL Studio) → 베베컵 → 테스트 및 출시 → 비공개 테스트 - Alpha → 새 버전 만들기 → AAB 업로드 → 출시 노트 → 검토 → 출시.
 
 ## CI Gates and GitHub Releases
 
@@ -112,8 +111,9 @@ BEBECUP_RELEASE_KEY_ALIAS        # 키 별칭
 BEBECUP_RELEASE_KEY_PASSWORD     # 키 비밀번호
 ```
 
-`v*`와 일치하는 버전 태그가 푸시되면 GitHub Actions가 빌드를 실행하고 최종적으로 다음 3개 산출물을 포함하여 GitHub Release를 자동 생성한다:
+`v*`와 일치하는 버전 태그가 푸시되면 GitHub Actions가 빌드를 실행하고 최종적으로 다음 산출물을 포함하여 GitHub Release를 자동 생성한다:
 
 - `bebecup-vX.Y.Z.apk` (서명된 릴리즈 APK)
-- `bebecup-vX.Y.Z.aab` (서명된 Play Store 업로드용 AAB)
 - `bebecup-vX.Y.Z.mapping.txt` (R8 난독화 해제 매핑 파일)
+
+Play 업로드용 AAB는 GitHub Release에 붙이지 않고 워크플로 산출물(`bebecup-release-aab`)로만 남긴다.

@@ -18,6 +18,7 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -122,20 +123,27 @@ class JourneyFlowTest {
         assertEquals("준결승 (4강)", viewModel.currentRoundName)
         assertEquals("2 / 2", viewModel.currentMatchLabel)
 
-        var safety = 0
-        while (viewModel.currentMatch != null && safety++ < 5) {
-            compose.mainClock.advanceTimeBy(VOTE_SETTLE_MS)
-            compose.onNodeWithTag("vote_left_candidate").performClick()
+        // The UI tap guard is covered above; play the remaining matches through
+        // the ViewModel so the result doesn't depend on frame/clock timing
+        // (tapping here was flaky on CI).
+        repeat(5) {
+            val match = viewModel.currentMatch ?: return@repeat
+            compose.runOnIdle { viewModel.vote(match, match.left) }
             compose.waitForIdle()
         }
-        // The champion is saved to Room before the winner screen opens, which
-        // can outlast one idle pass on a slow CI runner.
-        compose.waitUntil(timeoutMillis = 10_000) { viewModel.currentScreen is UiScreen.WorldCupWinner }
+        assertNull("bracket of 4 should be decided after 3 votes", viewModel.currentMatch)
+        // The winner screen opens as soon as the last vote lands.
         assertTrue(viewModel.currentScreen is UiScreen.WorldCupWinner)
         compose.onNodeWithTag("world_cup_winner_view").assertIsDisplayed()
         capture("08_winner")
 
-        val photos = runBlocking { ids.map { AppDatabase.getDatabase(context).babyPhotoDao().getPhotoById(it)!! } }
+        // Stats are written in the background; wait for them instead of
+        // assuming one idle pass is enough on a slow CI runner.
+        fun photos() = runBlocking { ids.map { AppDatabase.getDatabase(context).babyPhotoDao().getPhotoById(it)!! } }
+        compose.waitUntil(timeoutMillis = 10_000) {
+            photos().let { p -> p.sumOf { it.matchesCount } == 3 && p.sumOf { it.winsCount } == 1 }
+        }
+        val photos = photos()
         assertEquals("one bracket of 4 = 3 match wins in total", 3, photos.sumOf { it.matchesCount })
         assertEquals(1, photos.sumOf { it.winsCount })
 
