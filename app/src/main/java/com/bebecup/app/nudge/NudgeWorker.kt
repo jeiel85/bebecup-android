@@ -49,7 +49,9 @@ class NudgeWorker(
     override suspend fun doWork(): Result {
         val prefs = BebecupPrefs(applicationContext)
         if (!prefs.nudgeEnabled) return Result.success()
-        if (!PhotoAccess.canReadPhotos(applicationContext)) return Result.success()
+        // Partial ("선택한 사진만") access can't see newly taken photos, so the
+        // count would be meaningless; only full access drives reminders.
+        if (!PhotoAccess.hasFullAccess(applicationContext)) return Result.success()
         if (!NudgeNotifier.canPost(applicationContext)) return Result.success()
 
         val now = System.currentTimeMillis()

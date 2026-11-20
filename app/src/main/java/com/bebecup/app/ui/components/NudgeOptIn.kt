@@ -31,7 +31,9 @@ fun rememberNudgeOptIn(viewModel: BabyCupViewModel, onResult: (Boolean) -> Unit 
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ ->
-        val ok = PhotoAccess.canReadPhotos(context) && NudgeNotifier.canPost(context)
+        // Reminders count *new* photos, which "선택한 사진만 허용" (Android 14+)
+        // never exposes — so they need full gallery access, unlike a manual scan.
+        val ok = PhotoAccess.hasFullAccess(context) && NudgeNotifier.canPost(context)
         viewModel.updateNudgeEnabled(ok)
         declined.value = !ok
         viewModel.refreshHomeStatus()

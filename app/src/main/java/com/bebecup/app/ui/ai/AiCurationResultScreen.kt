@@ -70,7 +70,8 @@ fun AiCurationResultScreen(viewModel: BabyCupViewModel) {
             )
         }
 
-        if (shortlist.isEmpty()) {
+        val rejected = viewModel.aiRejectedItems
+        if (shortlist.isEmpty() && rejected.isEmpty()) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 EmptyState(
                     illustration = R.drawable.illus_empty,
@@ -84,7 +85,8 @@ fun AiCurationResultScreen(viewModel: BabyCupViewModel) {
             }
         } else {
             Text(
-                "베베컵이 고른 후보예요. 빼고 싶은 사진은 '추천 유지'를 눌러 제외해 주세요.",
+                if (shortlist.isEmpty()) "추천 기준을 넘은 사진은 없었어요. 아래 아쉬운 후보 중 마음에 드는 사진을 담아 보세요."
+                else "베베컵이 고른 후보예요. 빼고 싶은 사진은 '추천 유지'를 눌러 제외해 주세요.",
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 modifier = Modifier.padding(16.dp)
@@ -103,9 +105,10 @@ fun AiCurationResultScreen(viewModel: BabyCupViewModel) {
                 }
 
                 // "아쉬운 후보(제외)" section — gently phrased, never deleted (spec §11.5, §15.3).
-                val rejected = viewModel.aiRejectedItems
+                // With an empty shortlist it is the only content, so it is always open.
+                val rejectedOpen = showRejected || shortlist.isEmpty()
                 if (rejected.isNotEmpty()) {
-                    item {
+                    if (shortlist.isNotEmpty()) item {
                         TextButton(onClick = { showRejected = !showRejected }) {
                             Text(
                                 if (showRejected) "아쉬운 후보 접기"
@@ -115,7 +118,7 @@ fun AiCurationResultScreen(viewModel: BabyCupViewModel) {
                             )
                         }
                     }
-                    if (showRejected) {
+                    if (rejectedOpen) {
                         item {
                             Text(
                                 "제외된 사진도 삭제되지 않아요. 마음에 들면 '추천 유지'로 다시 담을 수 있어요.",

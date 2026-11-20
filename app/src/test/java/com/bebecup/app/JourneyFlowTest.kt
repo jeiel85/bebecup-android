@@ -123,11 +123,14 @@ class JourneyFlowTest {
         assertEquals("2 / 2", viewModel.currentMatchLabel)
 
         var safety = 0
-        while (viewModel.currentScreen is UiScreen.WorldCupPlay && safety++ < 5) {
+        while (viewModel.currentMatch != null && safety++ < 5) {
             compose.mainClock.advanceTimeBy(VOTE_SETTLE_MS)
             compose.onNodeWithTag("vote_left_candidate").performClick()
             compose.waitForIdle()
         }
+        // The champion is saved to Room before the winner screen opens, which
+        // can outlast one idle pass on a slow CI runner.
+        compose.waitUntil(timeoutMillis = 10_000) { viewModel.currentScreen is UiScreen.WorldCupWinner }
         assertTrue(viewModel.currentScreen is UiScreen.WorldCupWinner)
         compose.onNodeWithTag("world_cup_winner_view").assertIsDisplayed()
         capture("08_winner")

@@ -22,7 +22,8 @@ import java.io.File
  */
 object PrintShare {
 
-    data class Prepared(val uris: List<Uri>, val skipped: Int)
+    /** [photos] are the cart entries actually attached, in the same order as [uris]. */
+    data class Prepared(val uris: List<Uri>, val photos: List<BabyPhoto>, val skipped: Int)
 
     suspend fun prepare(context: Context, photos: List<BabyPhoto>): Prepared =
         withContext(Dispatchers.IO) {
@@ -31,6 +32,7 @@ object PrintShare {
                 mkdirs()
             }
             var skipped = 0
+            val attached = mutableListOf<BabyPhoto>()
             val uris = photos.mapIndexedNotNull { index, photo ->
                 try {
                     val source = Uri.parse(photo.uriString)
@@ -46,6 +48,7 @@ object PrintShare {
                         null
                     } else {
                         FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", target)
+                            .also { attached += photo }
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "could not prepare photo ${photo.id} for sharing", e)
@@ -53,7 +56,7 @@ object PrintShare {
                     null
                 }
             }
-            Prepared(uris, skipped)
+            Prepared(uris, attached, skipped)
         }
 
     fun shareIntent(uris: List<Uri>, summary: String): Intent {
@@ -69,7 +72,10 @@ object PrintShare {
         return Intent.createChooser(send, "인화할 곳으로 보내기")
     }
 
-    /** "4x6 2장, 5x7 1장" — sent as text so a print shop sees the wanted sizes. */
+    /**
+     * "4x6 2장, 5x7 1장" — sent as text so a print shop sees the wanted sizes.
+     * Pass only the photos that were actually attached.
+     */
     fun summary(photos: List<BabyPhoto>): String {
         val bySize = photos.groupBy { it.printSize }
             .map { (size, list) -> "$size ${list.sumOf { it.printQuantity }}장" }

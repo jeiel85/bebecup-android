@@ -56,7 +56,7 @@ fun SettingsScreen(viewModel: BabyCupViewModel) {
                     if (enable) optIn.request() else viewModel.updateNudgeEnabled(false)
                 }
                 Caption(
-                    if (optIn.declined.value) "사진 또는 알림 권한이 없어 켤 수 없어요. 휴대폰 설정 > 앱 > 베베컵에서 권한을 허용해 주세요."
+                    if (optIn.declined.value) "알림 권한과 '모든 사진' 접근이 있어야 켤 수 있어요. 휴대폰 설정 > 앱 > 베베컵에서 허용해 주세요."
                     else "확인 안 한 사진이 ${NudgePolicy.UNSORTED_THRESHOLD}장 넘게 쌓이면 하루 한 번 살펴보고, " +
                         "${NudgePolicy.MIN_INTERVAL_DAYS}일에 한 번까지만 알려드려요. 사진 개수만 세고, 사진을 열어 보지 않아요."
                 )

@@ -147,7 +147,7 @@ fun PrintCartView(viewModel: BabyCupViewModel, cartPhotos: List<BabyPhoto>) {
                             }
                             try {
                                 context.startActivity(
-                                    PrintShare.shareIntent(prepared.uris, PrintShare.summary(cartPhotos))
+                                    PrintShare.shareIntent(prepared.uris, PrintShare.summary(prepared.photos))
                                 )
                             } catch (e: ActivityNotFoundException) {
                                 message = "사진을 받을 수 있는 앱이 없어요."
