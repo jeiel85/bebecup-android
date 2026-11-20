@@ -1,0 +1,3 @@
+# scripts/play_upload.py 실행용(Play Developer Publishing API). 버전은 고정해 둔다.
+google-auth==2.62.1
+requests==2.34.2
