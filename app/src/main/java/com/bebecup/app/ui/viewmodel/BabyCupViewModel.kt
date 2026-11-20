@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bebecup.app.ai.AiModelAvailability
+import com.bebecup.app.ai.FaceModelInstaller
 import com.bebecup.app.ai.FaceQualityAnalyzer
 import com.bebecup.app.ai.PhotoQualityAnalyzer
 import com.bebecup.app.data.AppDatabase
@@ -87,6 +88,7 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
     private val buildAiShortlist: BuildAiShortlistUseCase
     private val buildRejectedList: BuildRejectedListUseCase
     private val comparePicks = CompareParentPickWithAiPickUseCase()
+    private val faceModelInstaller = FaceModelInstaller(application)
 
     val bestPhotos: StateFlow<List<BabyPhoto>>
     val printCartPhotos: StateFlow<List<BabyPhoto>>
@@ -145,6 +147,12 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
         private set
     val aiApprovedIds = mutableStateListOf<Int>()
     var aiScanFailed by mutableStateOf(false)
+        private set
+    /** The scan stopped because the face model could not be downloaded. */
+    var aiFaceModelMissing by mutableStateOf(false)
+        private set
+    /** Face model download progress 0..1 while known, null otherwise. */
+    var aiFaceModelProgress by mutableStateOf<Float?>(null)
         private set
     private var aiScanWindowEndMillis = 0L
 
@@ -235,6 +243,8 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
 
     fun completeOnboarding() {
         prefs.onboardingSeen = true
+        // Start fetching the face model now so the first scan doesn't wait.
+        faceModelInstaller.requestInBackground()
         navigateHome()
         refreshHomeStatus()
     }
@@ -317,6 +327,8 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             aiIsScanning = true
             aiScanFailed = false
+            aiFaceModelMissing = false
+            aiFaceModelProgress = null
             aiAnalyzedCount = 0
             aiTotalCount = 0
             aiRejectedCount = 0
@@ -331,6 +343,20 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
             aiScanWindowEndMillis = window.last
             var sessionId = 0
             try {
+                // Without the face model every photo would fail analysis and the
+                // result would be silently empty, so get it first or stop here.
+                val faceModelReady = faceModelInstaller.ensureInstalled { progress ->
+                    aiProgressStep = STEP_FACE_MODEL
+                    aiFaceModelProgress = progress
+                }
+                if (!faceModelReady) {
+                    aiFaceModelMissing = true
+                    aiScanFailed = true
+                    return@launch
+                }
+                aiFaceModelProgress = null
+                aiProgressStep = STEP_SCAN
+
                 sessionId = aiRepository.startSession(
                     AiCurationSessionEntity(
                         scanRangeStartMillis = window.first,
@@ -570,6 +596,7 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
         private const val TAG = "BabyCupViewModel"
         private const val DAY_MILLIS = 24L * 60L * 60L * 1000L
 
+        const val STEP_FACE_MODEL = "얼굴 인식 기능을 준비하는 중이에요"
         const val STEP_SCAN = "베베컵이 최근 사진을 찾는 중이에요"
         const val STEP_ANALYZE = "베베컵이 흔들림·표정·눈을 살펴보는 중이에요"
         const val STEP_CLUSTER = "베베컵이 비슷한 사진을 묶는 중이에요"
