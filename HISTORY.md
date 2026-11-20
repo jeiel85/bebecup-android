@@ -1,5 +1,14 @@
 # History
 
+## 2026-11-20 (v0.7.0 여정 재구성)
+
+- **컨셉 점검**: "쌓이면 넛지 → 정리 → 월드컵 → 나중에 인화" 기준으로 보니 넛지는 버튼으로 띄우는 가짜 배너, 승인 결과는 메모리에만 있어 재시작 시 소실, 인화는 가짜 진행 화면 뒤 찍스 홈만 여는 상태였음.
+- **재구성**: `BebecupPrefs`(마지막 정리 시점), `NudgePolicy`/`NudgeWorker`(옵트인 일일 점검), 보관함(`BestBoxScreen`), `TournamentEngine`, `PrintShare`(FileProvider 공유)로 여정을 다시 짬. 단일 컬럼 업데이트 DAO 쿼리로 오래된 `BabyPhoto` 복사본 덮어쓰기를 없앰.
+- **분석 버그**: EXIF 회전 반영(분석 버전 2), 흔들림 제외 토글 연결(`ShortlistRanking`), 자는 아기 설정 변경 시 분석 캐시 무효화, 픽 URI 영구 권한.
+- **그림**: Codex(image_gen)로 마스코트 일관 일러스트 9장 생성 → 6장 앱 적용(WebP, drawable-nodpi), 아이콘·스토어 아이콘 교체. 피처 그래픽은 생성만 하고 미적용.
+- **환경**: 이 PC의 Gradle 9.3.1이 모든 Kotlin DSL settings 스크립트를 컴파일하지 못해(캐시 정리·JDK 교체로도 불가) wrapper를 9.5.1로 올림. 메모리 압박으로 Gradle 데몬이 죽어 `-Xmx1536m`, workers 1로 빌드함.
+- **검증**: 단위 테스트(신규 `TournamentEngineTest`, `NudgeAndRankingTest`, DAO 테스트, Robolectric `JourneyFlowTest` 화면 캡처) 통과. 실기기 검증 결과는 PR에 기록.
+
 ## 2026-05-24 (Play Console 최초 등록 준비)
 
 - **릴리즈 키스토어 생성**: 기존 release keystore가 없어 `.keystore/bebecup-release.p12`를 PKCS12/RSA 4096bit로 생성하고, `release-signing.properties` 및 `.keystore/release-signing-backup.properties`에 서명 값을 저장함.

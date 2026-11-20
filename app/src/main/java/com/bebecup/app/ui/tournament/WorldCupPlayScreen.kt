@@ -2,36 +2,52 @@ package com.bebecup.app.ui.tournament
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bebecup.app.data.BabyPhoto
 import com.bebecup.app.ui.components.BabyPhotoIllustration
 import com.bebecup.app.ui.viewmodel.BabyCupViewModel
-import com.bebecup.app.ui.viewmodel.UiScreen
 
-// 5. WORLD CUP ACTIVE TOURNAMENT GAMEPLAY MATCH
+/** One match at a time: tap the photo the family likes more. */
 @Composable
-fun WorldCupPlayView(
-    viewModel: BabyCupViewModel
-) {
-    val left = viewModel.leftCandidate
-    val right = viewModel.rightCandidate
+fun WorldCupPlayView(viewModel: BabyCupViewModel) {
+    val match = viewModel.currentMatch
+    var confirmExit by rememberSaveable { mutableStateOf(false) }
 
-    if (left == null || right == null) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        }
+    if (match == null) {
+        // Bracket finished (winner screen is on its way) or never started.
+        Box(Modifier.fillMaxSize())
         return
     }
 
@@ -40,184 +56,107 @@ fun WorldCupPlayView(
             .fillMaxSize()
             .testTag("world_cup_play_view")
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Progress text
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = viewModel.currentRoundName,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                text = "매치 ${viewModel.currentMatchIndex + 1}",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Gray
-            )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    viewModel.currentRoundName,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                if (viewModel.currentMatchLabel.isNotEmpty()) {
+                    Text(
+                        "${viewModel.currentMatchLabel} 경기",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+            }
+            IconButton(
+                onClick = { confirmExit = true },
+                modifier = Modifier.background(MaterialTheme.colorScheme.surface, CircleShape)
+            ) { Icon(Icons.Default.Close, contentDescription = "월드컵 그만하기") }
         }
 
         Text(
-            text = "두 사진 중 더 가슴을 울리고 인화하고 싶은 아기 최고의 순간을 아래에서 선택해 주세요! 💕",
-            fontSize = 12.sp,
+            "더 마음이 가는 사진을 눌러 주세요 💕",
+            fontSize = 14.sp,
             textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
             modifier = Modifier.fillMaxWidth()
         )
 
-        // Comparison Stack Panels
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+        Contestant(
+            photo = match.left,
+            label = "A",
+            testTag = "vote_left_candidate",
+            modifier = Modifier.weight(1f),
+            onVote = { viewModel.vote(match, match.left) }
+        )
+        Box(
+            Modifier
+                .align(Alignment.CenterHorizontally)
+                .size(40.dp)
+                .background(Color(0xFFFFDB8E), CircleShape),
+            contentAlignment = Alignment.Center
         ) {
-            // Left contestant
-            Card(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .clickable { viewModel.submitMatchVote(left) }
-                    .testTag("vote_left_candidate"),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    BabyPhotoIllustration(
-                        uriString = left.uriString,
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight(),
-                        isExpanded = true
-                    )
-
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "후보 A",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = left.title,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = left.description,
-                            fontSize = 10.sp,
-                            color = Color.Gray,
-                            lineHeight = 14.sp,
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-
-            // Central VS visual accent badge
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .size(32.dp)
-                    .background(Color(0xFFFFD97D), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = "VS", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF5D4037))
-            }
-
-            // Right contestant
-            Card(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .clickable { viewModel.submitMatchVote(right) }
-                    .testTag("vote_right_candidate"),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    BabyPhotoIllustration(
-                        uriString = right.uriString,
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight(),
-                        isExpanded = true
-                    )
-
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "후보 B",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = right.title,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = right.description,
-                            fontSize = 10.sp,
-                            color = Color.Gray,
-                            lineHeight = 14.sp,
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
+            Text("VS", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF6B4F45))
         }
+        Contestant(
+            photo = match.right,
+            label = "B",
+            testTag = "vote_right_candidate",
+            modifier = Modifier.weight(1f),
+            onVote = { viewModel.vote(match, match.right) }
+        )
+    }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Button(
-                onClick = { viewModel.navigateTo(UiScreen.Dashboard) },
-                colors = ButtonDefaults.buttonColors(containerColor = Color.LightGray),
-                modifier = Modifier.testTag("match_exit_btn")
-            ) {
-                Text("월드컵 기권 (홈으로)", color = Color.DarkGray, fontSize = 11.sp)
-            }
+    if (confirmExit) {
+        AlertDialog(
+            onDismissRequest = { confirmExit = false },
+            title = { Text("월드컵을 그만할까요?") },
+            text = { Text("진행 중인 대결은 저장되지 않아요. 보관함 사진은 그대로 남아 있어요.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmExit = false
+                    viewModel.navigateHome()
+                }) { Text("그만하기") }
+            },
+            dismissButton = { TextButton(onClick = { confirmExit = false }) { Text("계속하기") } }
+        )
+    }
+}
+
+@Composable
+private fun Contestant(
+    photo: BabyPhoto,
+    label: String,
+    testTag: String,
+    modifier: Modifier,
+    onVote: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onVote)
+            .testTag(testTag),
+        shape = RoundedCornerShape(28.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            BabyPhotoIllustration(photo.uriString, Modifier.fillMaxSize(), isExpanded = true)
             Text(
-                text = "탭하여 표 투표하기",
-                fontSize = 11.sp,
-                color = Color.Gray,
-                fontWeight = FontWeight.Medium
+                label,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(12.dp)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.85f), CircleShape)
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
             )
         }
     }

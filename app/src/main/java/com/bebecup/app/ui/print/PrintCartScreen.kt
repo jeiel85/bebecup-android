@@ -1,269 +1,268 @@
 package com.bebecup.app.ui.print
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bebecup.app.R
 import com.bebecup.app.data.BabyPhoto
 import com.bebecup.app.ui.components.BabyPhotoIllustration
+import com.bebecup.app.ui.components.EmptyState
+import com.bebecup.app.ui.components.ScreenHeader
 import com.bebecup.app.ui.viewmodel.BabyCupViewModel
 import com.bebecup.app.ui.viewmodel.UiScreen
+import kotlinx.coroutines.launch
 
-// 7. MY PRINT CART BOX (인화 바구니 연동 및 찍스)
+private val PRINT_SIZES = listOf("3x5", "4x6", "5x7", "8x10")
+private const val ZZIXX_URL = "https://www.zzixx.com/"
+
+/**
+ * 인화함: photos kept for printing later. "인화하러 보내기" opens the system
+ * share sheet so the parent picks the print app/site; BebeCup itself uploads
+ * nothing.
+ */
 @Composable
-fun PrintCartView(
-    viewModel: BabyCupViewModel,
-    cartPhotos: List<BabyPhoto>
-) {
-    val sizePricing = mapOf("3x5" to 110, "4x6" to 140, "D4" to 170, "Wallet" to 180)
-
-    // Calculate total pricing based on size definitions
-    val totalPrice = cartPhotos.sumOf { item ->
-        val unitPrice = sizePricing[item.printSize] ?: 140
-        unitPrice * item.printQuantity
-    }
+fun PrintCartView(viewModel: BabyCupViewModel, cartPhotos: List<BabyPhoto>) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var preparing by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+    var confirmClear by remember { mutableStateOf(false) }
 
     Column(
-        modifier = Modifier
+        Modifier
             .fillMaxSize()
             .testTag("print_cart_view")
     ) {
-        // App header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(
-                    onClick = { viewModel.navigateTo(UiScreen.Dashboard) },
-                    modifier = Modifier.background(MaterialTheme.colorScheme.surface, CircleShape)
-                ) {
-                    Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "뒤로가기")
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(text = "내 인화 보관함", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Text(text = "선택된 우승 사진 목록", fontSize = 11.sp, color = Color.Gray)
+        ScreenHeader(
+            title = "인화함",
+            subtitle = "${cartPhotos.size}장 · 총 ${cartPhotos.sumOf { it.printQuantity }}매",
+            onBack = { viewModel.navigateBack() },
+            trailing = {
+                if (cartPhotos.isNotEmpty()) {
+                    TextButton(onClick = { confirmClear = true }) { Text("비우기") }
                 }
             }
+        )
 
-            if (cartPhotos.isNotEmpty()) {
-                TextButton(
-                    onClick = { viewModel.clearPrintCart() },
-                    colors = ButtonDefaults.textButtonColors(contentColor = Color.Red),
-                    modifier = Modifier.testTag("clear_cart_btn")
+        if (cartPhotos.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                EmptyState(
+                    illustration = R.drawable.illus_print,
+                    title = "인화함이 비어 있어요",
+                    body = "월드컵 우승 사진이나 보관함 사진을 담아 두면\n나중에 한 번에 인화할 수 있어요."
                 ) {
-                    Text("전체 비우기", fontSize = 12.sp)
+                    Button(onClick = { viewModel.navigateTo(UiScreen.BestBox) }) { Text("보관함에서 고르기") }
                 }
+            }
+            return@Column
+        }
+
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            items(cartPhotos, key = { it.id }) { photo ->
+                PrintItemCard(
+                    photo = photo,
+                    onSize = { viewModel.updatePrintCartItem(photo, it, photo.printQuantity) },
+                    onQuantity = { viewModel.updatePrintCartItem(photo, photo.printSize, it) },
+                    onRemove = { viewModel.removeFromPrintCart(photo) }
+                )
+            }
+            item {
+                TextButton(
+                    onClick = {
+                        try {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ZZIXX_URL)))
+                        } catch (e: ActivityNotFoundException) {
+                            message = "브라우저를 열 수 없어요."
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("인화 사이트 바로가기 (찍스)", fontSize = 12.sp) }
             }
         }
 
-        if (cartPhotos.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ShoppingCart,
-                        contentDescription = "Empty list",
-                        tint = Color.LightGray,
-                        modifier = Modifier.size(64.dp)
-                    )
-                    Text("아직 인화 바구니에 담긴 사진이 없습니다.", fontSize = 13.sp, color = Color.Gray)
-                    Text("월드컵 우승 사진이나 전체 리스트에서 추가해보세요!", fontSize = 11.sp, color = Color.Gray)
-                    Button(onClick = { viewModel.navigateTo(UiScreen.Dashboard) }) {
-                        Text("메인 대진으로 이동", fontSize = 11.sp)
-                    }
-                }
-            }
-        } else {
-            Column(modifier = Modifier.weight(1f)) {
-                LazyColumn(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(bottom = 16.dp)
-                ) {
-                    items(cartPhotos) { item ->
-                        var isExpandedDropdown by remember { mutableStateOf(false) }
-
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("cart_item_${item.id}"),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(10.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                BabyPhotoIllustration(
-                                    uriString = item.uriString,
-                                    modifier = Modifier.size(72.dp)
+        Surface(shadowElevation = 8.dp) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Button(
+                    onClick = {
+                        preparing = true
+                        scope.launch {
+                            val prepared = PrintShare.prepare(context, cartPhotos)
+                            preparing = false
+                            if (prepared.uris.isEmpty()) {
+                                message = "사진을 열 수 없어 보낼 수 없어요. 사진첩에서 지워졌는지 확인해 주세요."
+                                return@launch
+                            }
+                            if (prepared.skipped > 0) {
+                                message = "열 수 없는 사진 ${prepared.skipped}장은 빼고 보냈어요."
+                            }
+                            try {
+                                context.startActivity(
+                                    PrintShare.shareIntent(prepared.uris, PrintShare.summary(cartPhotos))
                                 )
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = item.title,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-
-                                    // Custom Size layout picker dropdown inside cart
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.clickable { isExpandedDropdown = true }
-                                    ) {
-                                        Text(
-                                            text = "사이즈: ${item.printSize} (장당 ${sizePricing[item.printSize]}원)",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                        Icon(imageVector = Icons.Default.ArrowDropDown, contentDescription = "dropdown", modifier = Modifier.size(16.dp))
-
-                                        DropdownMenu(
-                                            expanded = isExpandedDropdown,
-                                            onDismissRequest = { isExpandedDropdown = false }
-                                        ) {
-                                            sizePricing.keys.forEach { sz ->
-                                                DropdownMenuItem(
-                                                    text = { Text("$sz 사이즈") },
-                                                    onClick = {
-                                                        viewModel.updatePrintCartItem(item, sz, item.printQuantity)
-                                                        isExpandedDropdown = false
-                                                    }
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Stepper quantity control details (+ / -)
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    IconButton(
-                                        onClick = {
-                                            if (item.printQuantity > 1) {
-                                                viewModel.updatePrintCartItem(item, item.printSize, item.printQuantity - 1)
-                                            } else {
-                                                viewModel.removePhotoFromPrintCart(item)
-                                            }
-                                        },
-                                        modifier = Modifier
-                                            .size(24.dp)
-                                            .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
-                                    ) {
-                                        Text("-", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                    }
-
-                                    Text(
-                                        text = "${item.printQuantity}",
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        modifier = Modifier.padding(horizontal = 4.dp)
-                                    )
-
-                                    IconButton(
-                                        onClick = {
-                                            viewModel.updatePrintCartItem(item, item.printSize, item.printQuantity + 1)
-                                        },
-                                        modifier = Modifier
-                                            .size(24.dp)
-                                            .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
-                                    ) {
-                                        Text("+", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                    }
-                                }
+                            } catch (e: ActivityNotFoundException) {
+                                message = "사진을 받을 수 있는 앱이 없어요."
                             }
                         }
-                    }
-                }
-
-                // Billing checkout action summary
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 0.dp, bottomEnd = 0.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                    },
+                    enabled = !preparing,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .testTag("share_print_button"),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("총 파일 수량", fontSize = 13.sp)
-                            Text("${cartPhotos.sumOf { it.printQuantity }}장", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("예상 인화 비용 (찍스 할인가)", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            Text("${totalPrice}원", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
-                        }
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Button(
-                            onClick = { viewModel.simulateTransferToZzixx() },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp)
-                                .testTag("zzixx_checkout_btn"),
-                            shape = RoundedCornerShape(14.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                                Icon(imageVector = Icons.Default.Check, contentDescription = "Order")
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("찍스(ZZIXX) 주문 페이지 준비하기", fontWeight = FontWeight.ExtraBold)
-                            }
-                        }
+                    if (preparing) {
+                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)
+                    } else {
+                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("인화하러 보내기", fontWeight = FontWeight.ExtraBold)
                     }
                 }
+                Text(
+                    "인화 앱·사이트·메신저 중 원하는 곳을 고르면 사진이 그곳으로 전달돼요. 베베컵이 직접 업로드하지는 않아요.",
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
             }
         }
     }
+
+    message?.let {
+        AlertDialog(
+            onDismissRequest = { message = null },
+            text = { Text(it) },
+            confirmButton = { TextButton(onClick = { message = null }) { Text("확인") } }
+        )
+    }
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text("인화함을 비울까요?") },
+            text = { Text("인화함 목록만 비워요. 사진과 보관함은 그대로예요.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.clearPrintCart()
+                    confirmClear = false
+                }) { Text("비우기") }
+            },
+            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("취소") } }
+        )
+    }
 }
+
+@Composable
+private fun PrintItemCard(
+    photo: BabyPhoto,
+    onSize: (String) -> Unit,
+    onQuantity: (Int) -> Unit,
+    onRemove: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            BabyPhotoIllustration(photo.uriString, Modifier.size(84.dp))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    PRINT_SIZES.forEach { size ->
+                        val selected = size == photo.printSize
+                        Text(
+                            size,
+                            fontSize = 12.sp,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier
+                                .background(
+                                    if (selected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                    RoundedCornerShape(10.dp)
+                                )
+                                .clickable { onSize(size) }
+                                .padding(horizontal = 8.dp, vertical = 5.dp)
+                        )
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    StepButton("−", enabled = photo.printQuantity > 1) { onQuantity(photo.printQuantity - 1) }
+                    Text(
+                        "${photo.printQuantity}매",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+                    StepButton("+", enabled = photo.printQuantity < 99) { onQuantity(photo.printQuantity + 1) }
+                }
+            }
+            IconButton(onClick = onRemove) { Icon(Icons.Default.Close, contentDescription = "인화함에서 빼기") }
+        }
+    }
+}
+
+@Composable
+private fun StepButton(label: String, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .size(30.dp)
+            .background(
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (enabled) 0.8f else 0.3f),
+                CircleShape
+            )
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) { Text(label, fontWeight = FontWeight.Bold) }
+}
+

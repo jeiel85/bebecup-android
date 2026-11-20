@@ -22,17 +22,12 @@ class BuildAiShortlistUseCase(
     suspend operator fun invoke(
         limit: Int = DEFAULT_LIMIT,
         photoIds: Set<Int>? = null,
-        version: Int = PhotoAnalysisEntity.CURRENT_ANALYSIS_VERSION
+        version: Int = PhotoAnalysisEntity.CURRENT_ANALYSIS_VERSION,
+        excludeBlurry: Boolean = false
     ): List<ShortlistItem> {
-        val top = if (photoIds == null) {
-            aiRepository.getTopByScore(limit, version)
-        } else {
-            aiRepository.getAllAnalyses(version)
-                .filter { it.photoId in photoIds }
-                .sortedByDescending { it.overallScore }
-                .take(limit)
-        }
-        return top.mapNotNull { analysis ->
+        val scoped = aiRepository.getAllAnalyses(version)
+            .let { list -> if (photoIds == null) list else list.filter { it.photoId in photoIds } }
+        return ShortlistRanking.split(scoped, limit, excludeBlurry).shortlist.mapNotNull { analysis ->
             babyRepository.getPhotoById(analysis.photoId)?.let { photo ->
                 ShortlistItem(photo = photo, analysis = analysis)
             }

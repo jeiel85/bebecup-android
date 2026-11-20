@@ -2,456 +2,346 @@ package com.bebecup.app.ui.dashboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bebecup.app.R
 import com.bebecup.app.data.BabyPhoto
-import com.bebecup.app.ui.components.BabyPhotoCardItem
+import com.bebecup.app.data.TournamentRecord
+import com.bebecup.app.ui.components.BabyPhotoIllustration
+import com.bebecup.app.ui.components.Illustration
+import com.bebecup.app.ui.components.rememberNudgeOptIn
 import com.bebecup.app.ui.viewmodel.BabyCupViewModel
 import com.bebecup.app.ui.viewmodel.UiScreen
 
-// 1. DASHBOARD VIEW (HOME)
+/**
+ * Home. Mirrors the app's journey: the top card says how many photos are
+ * waiting to be sorted (the nudge), then ① 보관함 ② 월드컵 ③ 인화함.
+ */
 @Composable
 fun DashboardView(
     viewModel: BabyCupViewModel,
-    allPhotos: List<BabyPhoto>,
     bestPhotos: List<BabyPhoto>,
-    printCartPhotos: List<BabyPhoto>
+    printCartPhotos: List<BabyPhoto>,
+    tournaments: List<TournamentRecord>
 ) {
-    val context = LocalContext.current
-
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(vertical = 16.dp)
+            .testTag("dashboard_view"),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // App Header Branding
+        item { HomeHeader(onSettings = { viewModel.navigateTo(UiScreen.Settings) }) }
+        item { NudgeHeroCard(viewModel) }
         item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            JourneyRow(
+                bestCount = bestPhotos.size,
+                cupCount = tournaments.size,
+                printCount = printCartPhotos.size,
+                onBest = { viewModel.navigateTo(UiScreen.BestBox) },
+                onCup = { viewModel.navigateTo(UiScreen.WorldCupSetup) },
+                onPrint = { viewModel.navigateTo(UiScreen.PrintCart) }
+            )
+        }
+        item { BestBoxPreview(bestPhotos, onOpen = { viewModel.navigateTo(UiScreen.BestBox) }) }
+        item {
+            FeatureCard(
+                illustration = R.drawable.illus_worldcup,
+                title = "가족 이상형 월드컵",
+                body = if (bestPhotos.size >= 2) "보관한 사진 ${bestPhotos.size}장 중 최고의 한 장을 가족이 함께 뽑아요"
+                else "보관함에 사진이 2장 이상 모이면 시작할 수 있어요",
+                actionLabel = "월드컵 열기",
+                actionEnabled = bestPhotos.size >= 2,
+                testTag = "goto_worldcup_button",
+                onAction = { viewModel.navigateTo(UiScreen.WorldCupSetup) }
+            )
+        }
+        item {
+            FeatureCard(
+                illustration = R.drawable.illus_print,
+                title = "인화함 ${printCartPhotos.size}장",
+                body = if (printCartPhotos.isEmpty()) "우승 사진이나 보관함 사진을 담아 두면 나중에 한 번에 인화할 수 있어요"
+                else "담아 둔 사진을 인화 앱이나 사이트로 한 번에 보낼 수 있어요",
+                actionLabel = "인화함 열기",
+                actionEnabled = true,
+                testTag = "goto_print_button",
+                onAction = { viewModel.navigateTo(UiScreen.PrintCart) }
+            )
+        }
+        item {
+            TextButton(
+                onClick = { viewModel.navigateTo(UiScreen.TournamentHistoryList) },
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column {
-                    Text(
-                        text = "베베컵 🧡",
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = "아기사진 이상형 월드컵 & 인화 선택기",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    IconButton(
-                        onClick = { viewModel.navigateTo(UiScreen.Settings) },
-                        modifier = Modifier
-                            .background(MaterialTheme.colorScheme.surface, CircleShape)
-                            .shadow(1.dp, CircleShape)
-                            .testTag("goto_settings_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "설정",
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    IconButton(
-                        onClick = { viewModel.triggerBestShotReminder() },
-                        modifier = Modifier
-                            .background(MaterialTheme.colorScheme.surface, CircleShape)
-                            .shadow(1.dp, CircleShape)
-                    ) {
-                        BadgedBox(
-                            badge = {
-                                if (viewModel.showNotificationAlert) {
-                                    Badge(containerColor = MaterialTheme.colorScheme.primary)
-                                }
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Notifications,
-                                contentDescription = "베스트 샷 알림",
-                                tint = if (viewModel.showNotificationAlert) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-                }
+                Text("🏆 우승 전당 · 지금까지 ${tournaments.size}번의 월드컵", fontSize = 13.sp)
             }
         }
+    }
+}
 
-        // Parenting selective push notice simulator block
-        if (viewModel.showNotificationAlert) {
-            item {
-                Card(
+@Composable
+private fun HomeHeader(onSettings: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                "베베컵",
+                fontSize = 26.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                "쌓인 아기 사진, 베스트만 골라 두기",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            )
+        }
+        IconButton(
+            onClick = onSettings,
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.surface, CircleShape)
+                .testTag("goto_settings_button")
+        ) {
+            Icon(Icons.Default.Settings, contentDescription = "설정")
+        }
+    }
+}
+
+@Composable
+private fun NudgeHeroCard(viewModel: BabyCupViewModel) {
+    val unsorted = viewModel.unsortedCount
+    val canRead = viewModel.canReadPhotos
+    val daysSince = viewModel.daysSinceReview()
+    val optIn = rememberNudgeOptIn(viewModel)
+
+    val allSorted = canRead && unsorted == 0
+    val title = when {
+        !canRead -> "쌓인 아기 사진, 베베컵이 먼저 추려 드릴게요"
+        unsorted == null -> "최근 사진을 세는 중이에요…"
+        unsorted == 0 -> "모두 정리했어요! 🎉"
+        else -> "확인 안 한 사진이 ${unsorted}장 쌓였어요"
+    }
+    val body = when {
+        !canRead -> "갤러리를 볼 수 있게 허용하면 정리 안 한 사진이 몇 장인지 알려드려요. 사진은 기기 밖으로 나가지 않아요."
+        allSorted && daysSince != null -> "마지막 정리 ${if (daysSince == 0L) "오늘" else "${daysSince}일 전"} · 새 사진이 쌓이면 다시 알려드릴게요"
+        daysSince != null -> "마지막 정리 ${if (daysSince == 0L) "오늘" else "${daysSince}일 전"} · 5분이면 베스트를 골라 둘 수 있어요"
+        else -> "최근 2주 사진이에요. 5분이면 베스트를 골라 둘 수 있어요"
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("nudge_hero_card"),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+    ) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(title, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 25.sp)
+                    Text(
+                        body,
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
+                    )
+                }
+                Illustration(
+                    if (allSorted) R.drawable.illus_curate else R.drawable.illus_nudge,
+                    size = 112.dp
+                )
+            }
+            if (allSorted) {
+                OutlinedButton(
+                    onClick = { viewModel.navigateTo(UiScreen.AiScanSetup) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .shadow(4.dp, RoundedCornerShape(20.dp))
-                        .testTag("push_alert_banner"),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                        .testTag("goto_ai_curation_button"),
+                    shape = RoundedCornerShape(16.dp)
+                ) { Text("그래도 다시 골라보기", fontWeight = FontWeight.Bold) }
+            } else {
+                Button(
+                    onClick = { viewModel.navigateTo(UiScreen.AiScanSetup) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .testTag("goto_ai_curation_button"),
+                    shape = RoundedCornerShape(16.dp)
+                ) { Text("지금 베스트 골라보기", fontWeight = FontWeight.ExtraBold, fontSize = 15.sp) }
+            }
+            if (!viewModel.nudgeEnabled) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        if (optIn.declined.value) "알림·사진 권한이 없어 알려드릴 수 없어요. 설정에서 바꿀 수 있어요."
+                        else "사진이 쌓이면 알려드릴까요?",
+                        fontSize = 12.sp,
+                        modifier = Modifier.weight(1f),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
                     )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.Top,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .background(MaterialTheme.colorScheme.primary, CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Notifications,
-                                        contentDescription = "Notification icon",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                                Column {
-                                    Text(
-                                        text = "엄빠를 위한 정기 알림 🔔",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp,
-                                        color = MaterialTheme.colorScheme.onBackground
-                                    )
-                                    Text(
-                                        text = "지금 방금",
-                                        fontSize = 10.sp,
-                                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
-                                    )
-                                }
-                            }
-                            IconButton(
-                                onClick = { viewModel.dismissNotificationAlert() },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "닫기",
-                                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-
-                        Text(
-                            text = "최근 3일간 촬영된 이달의 아기 사진이 쌓여있네요! 늦기 전에 이번 주 베스트 샷들을 후다닥 상자 속에 엄선해두고 이상형 월드컵 준비를 끝냅시다 ✨",
-                            fontSize = 12.sp,
-                            lineHeight = 18.sp,
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
-                        )
-
-                        Button(
-                            onClick = { viewModel.navigateTo(UiScreen.BestShotSelector) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("select_now_button"),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text("🧡 이번 주 베스트 사진 엄선하기", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        }
+                    TextButton(onClick = optIn.request, modifier = Modifier.testTag("nudge_opt_in_button")) {
+                        Text("알림 켜기", fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
+    }
+}
 
-        // Primary AI curation controller (new AI-first entry point)
-        item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("ai_curation_launcher_card"),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
-                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .background(Color.White.copy(alpha = 0.2f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Star, contentDescription = null, tint = Color.White)
-                        }
-                        Column {
-                            Text("베베컵이 골라주는 베스트 ✨", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
-                            Text(
-                                "흔들리거나 비슷한 컷은 빼고, 베스트만 쏙 골라드려요",
-                                fontSize = 11.sp,
-                                color = Color.White.copy(alpha = 0.85f)
-                            )
-                        }
-                    }
-                    Button(
-                        onClick = { viewModel.navigateTo(UiScreen.AiScanSetup) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(46.dp)
-                            .testTag("goto_ai_curation_button"),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("이번 주 베스트 골라보기", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)
-                    }
-                }
-            }
+@Composable
+private fun JourneyRow(
+    bestCount: Int,
+    cupCount: Int,
+    printCount: Int,
+    onBest: () -> Unit,
+    onCup: () -> Unit,
+    onPrint: () -> Unit
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+        JourneyStep("① 보관함", "${bestCount}장", Modifier.weight(1f), onBest)
+        JourneyStep("② 월드컵", "${cupCount}회", Modifier.weight(1f), onCup)
+        JourneyStep("③ 인화함", "${printCount}장", Modifier.weight(1f), onPrint)
+    }
+}
+
+@Composable
+private fun JourneyStep(label: String, value: String, modifier: Modifier, onClick: () -> Unit) {
+    Card(
+        modifier = modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+            Text(value, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
         }
+    }
+}
 
-        // Primary World Cup start controller
-        item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("world_cup_launcher_card"),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Star,
-                                contentDescription = "Trophy icon",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        Column {
-                            Text(
-                                text = "아기사진 이상형 월드컵 🏆",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "엄선된 베스트 사진 중 최고의 사진을 선출해요",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                            )
-                        }
-                    }
-
-                    // Stat summary
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
-                                RoundedCornerShape(14.dp)
-                            )
-                            .padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceAround
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = "엄선 보관된 베스트", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-                            Text(text = "${bestPhotos.size}장", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
-                        }
-                        Divider(
-                            modifier = Modifier
-                                .height(32.dp)
-                                .width(1.dp),
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                        )
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = "총 인화 예정", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-                            Text(text = "${printCartPhotos.size}장", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-
-                    Button(
-                        onClick = { viewModel.navigateTo(UiScreen.WorldCupSetup) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp)
-                            .testTag("start_worldcup_button"),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        ),
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(imageVector = Icons.Default.PlayArrow, contentDescription = "Play icon", tint = Color.White)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("대회 개막하기! (이상형 월드컵)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
-                        }
-                    }
-                }
-            }
-        }
-
-        // Secondary quick navigation actions row
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                // Cart print bucket button
-                Card(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { viewModel.navigateTo(UiScreen.PrintCart) }
-                        .testTag("goto_cart_button"),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ShoppingCart,
-                            contentDescription = "Cart print",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text("인화 인화함", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        Text("${printCartPhotos.size}장 보관 중", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-                    }
-                }
-
-                // Match Tournament records history
-                Card(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { viewModel.navigateTo(UiScreen.TournamentHistoryList) }
-                        .testTag("goto_history_button"),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.List,
-                            contentDescription = "History list",
-                            tint = Color(0xFFFFD97D)
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text("우승 전당", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        Text("역대 기록 보기", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-                    }
-                }
-            }
-        }
-
-        // Photos repository view tag summary
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+@Composable
+private fun BestBoxPreview(bestPhotos: List<BabyPhoto>, onOpen: () -> Unit) {
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "우리 아기 갤러리 👶 (${allPhotos.size}장)",
+                    "베스트 보관함",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    modifier = Modifier.weight(1f)
                 )
-
-                TextButton(
-                    onClick = { viewModel.navigateTo(UiScreen.PhotoManager) },
-                    modifier = Modifier.testTag("manage_gallery_button")
-                ) {
-                    Text("관리 / 등록하기", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                TextButton(onClick = onOpen, modifier = Modifier.testTag("goto_best_box_button")) {
+                    Text("전체 보기")
                 }
             }
-        }
-
-        // 4 Columns layout listing items
-        if (allPhotos.isEmpty()) {
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 30.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "등록된 아기 사진이 없습니다.", fontSize = 12.sp, color = Color.Gray)
+            if (bestPhotos.isEmpty()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Illustration(R.drawable.illus_empty, size = 72.dp)
+                    Spacer(Modifier.size(8.dp))
+                    Text(
+                        "아직 보관한 사진이 없어요. 베베컵 추천에서 고르거나 사진첩에서 직접 담아 보세요.",
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+                    )
                 }
-            }
-        } else {
-            item {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(380.dp),
-                    contentPadding = PaddingValues(bottom = 12.dp)
-                ) {
-                    items(allPhotos.take(4)) { photo ->
-                        BabyPhotoCardItem(
-                            photo = photo,
-                            onClick = { viewModel.toggleBestShotSelectionInDb(photo) }
+            } else {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(bestPhotos.take(12), key = { it.id }) { photo ->
+                        BabyPhotoIllustration(
+                            uriString = photo.uriString,
+                            modifier = Modifier
+                                .size(84.dp)
+                                .clickable(onClick = onOpen)
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeatureCard(
+    illustration: Int,
+    title: String,
+    body: String,
+    actionLabel: String,
+    actionEnabled: Boolean,
+    testTag: String,
+    onAction: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .size(96.dp)
+                    .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f), RoundedCornerShape(20.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Illustration(illustration, size = 88.dp)
+            }
+            Spacer(Modifier.size(14.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    body,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+                )
+                Button(
+                    onClick = onAction,
+                    enabled = actionEnabled,
+                    shape = RoundedCornerShape(14.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+                    colors = ButtonDefaults.buttonColors(disabledContainerColor = Color.LightGray.copy(alpha = 0.4f)),
+                    modifier = Modifier.testTag(testTag)
+                ) { Text(actionLabel, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
             }
         }
     }

@@ -5,6 +5,8 @@ import com.bebecup.app.data.ai.PhotoAnalysisEntity
 import com.bebecup.app.data.media.PhotoMetadataReader
 import com.bebecup.app.domain.model.PhotoQualityGrade
 import com.bebecup.app.domain.model.PhotoScoreInput
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 
 /**
@@ -29,9 +31,15 @@ class PhotoQualityAnalyzer(
     ): PhotoAnalysisEntity? {
         val bitmap = metadataReader.decodeThumbnail(uri) ?: return null
         try {
-            val blurScore = BlurDetector.blurScore(bitmap)
-            val exposureScore = ExposureAnalyzer.exposureScore(bitmap)
-            val dHash = PerceptualHash.dHash(bitmap)
+            // Pixel loops are CPU-bound: keep them off the main thread so the
+            // progress screen stays smooth on long scans.
+            val (blurScore, exposureScore, dHash) = withContext(Dispatchers.Default) {
+                Triple(
+                    BlurDetector.blurScore(bitmap),
+                    ExposureAnalyzer.exposureScore(bitmap),
+                    PerceptualHash.dHash(bitmap)
+                )
+            }
             val face = faceAnalyzer.analyze(bitmap)
 
             val eyeOpenScore = EyeStateAnalyzer.eyeOpenScore(

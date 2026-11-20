@@ -19,12 +19,12 @@ class BuildRejectedListUseCase(
         shortlistLimit: Int,
         maxItems: Int = DEFAULT_MAX,
         photoIds: Set<Int>? = null,
-        version: Int = PhotoAnalysisEntity.CURRENT_ANALYSIS_VERSION
+        version: Int = PhotoAnalysisEntity.CURRENT_ANALYSIS_VERSION,
+        excludeBlurry: Boolean = false
     ): List<ShortlistItem> {
-        val all = aiRepository.getAllAnalyses(version)
+        val scoped = aiRepository.getAllAnalyses(version)
             .let { list -> if (photoIds == null) list else list.filter { it.photoId in photoIds } }
-            .sortedByDescending { it.overallScore }
-        return all.drop(shortlistLimit)
+        return ShortlistRanking.split(scoped, shortlistLimit, excludeBlurry).rejected
             .take(maxItems)
             .mapNotNull { analysis ->
                 babyRepository.getPhotoById(analysis.photoId)?.let { ShortlistItem(it, analysis) }

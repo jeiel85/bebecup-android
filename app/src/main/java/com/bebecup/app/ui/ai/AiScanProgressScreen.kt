@@ -1,22 +1,34 @@
 package com.bebecup.app.ui.ai
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bebecup.app.R
+import com.bebecup.app.ui.components.Illustration
 import com.bebecup.app.ui.viewmodel.BabyCupViewModel
 
-// AI Scan Progress (spec §11.2) — make the scan feel safe and transparent.
 @Composable
 fun AiScanProgressScreen(viewModel: BabyCupViewModel) {
     Column(
@@ -25,50 +37,61 @@ fun AiScanProgressScreen(viewModel: BabyCupViewModel) {
             .testTag("ai_scan_progress_view")
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically)
     ) {
-        CircularProgressIndicator(modifier = Modifier.size(56.dp))
-        Spacer(modifier = Modifier.height(24.dp))
+        if (viewModel.aiScanFailed) {
+            Illustration(R.drawable.illus_empty, size = 200.dp)
+            Text("사진을 살펴보다 멈췄어요", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "잠시 후 다시 시도해 주세요. 계속 안 되면 사진 접근 권한을 확인해 주세요.",
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+            Button(onClick = { viewModel.startAiCuration() }) { Text("다시 시도") }
+            TextButton(onClick = { viewModel.navigateHome() }) { Text("홈으로") }
+            return@Column
+        }
 
+        Illustration(R.drawable.illus_curate, size = 220.dp)
         Text(
-            text = viewModel.aiProgressStep.ifBlank { "준비 중이에요" },
+            viewModel.aiProgressStep.ifBlank { "준비 중이에요" },
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.primary
         )
-
-        if (viewModel.aiTotalCount > 0) {
-            Spacer(modifier = Modifier.height(8.dp))
+        val total = viewModel.aiTotalCount
+        if (total > 0) {
+            LinearProgressIndicator(
+                progress = { (viewModel.aiAnalyzedCount.toFloat() / total).coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth(0.8f)
+            )
             Text(
-                text = "${viewModel.aiAnalyzedCount} / ${viewModel.aiTotalCount}장 확인",
+                "${viewModel.aiAnalyzedCount} / ${total}장 확인",
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )
+        } else {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth(0.8f))
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
-
-        // Local-only reassurance (spec §11.2)
         Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+            )
         ) {
             Row(
                 modifier = Modifier.padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Lock,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
+                Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Text(
-                    text = "베베컵이 사진을 밖으로 보내지 않고, 기기 안에서만 살펴보는 중이에요.",
+                    "사진은 밖으로 나가지 않고, 이 기기 안에서만 살펴보고 있어요.",
                     fontSize = 12.sp,
-                    lineHeight = 17.sp,
-                    color = Color.DarkGray
+                    lineHeight = 17.sp
                 )
             }
         }

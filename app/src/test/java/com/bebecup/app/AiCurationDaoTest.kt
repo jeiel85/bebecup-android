@@ -133,4 +133,58 @@ class AiCurationDaoTest {
         assertTrue(analysisDao.getAnalyzedPhotoIds(PhotoAnalysisEntity.CURRENT_ANALYSIS_VERSION).isEmpty())
         assertNull(sessionDao.getById(sessionId))
     }
+
+    @Test
+    fun `invalidating analyses keeps session history`() = runBlocking {
+        val repo = com.bebecup.app.data.ai.RoomAiCurationRepository(
+            db.photoAnalysisDao(), db.photoClusterDao(), db.aiCurationSessionDao()
+        )
+        val sessionId = db.aiCurationSessionDao().insert(
+            AiCurationSessionEntity(
+                scanRangeStartMillis = 0L,
+                scanRangeEndMillis = 100L,
+                status = CurationStatus.COMPLETED,
+                createdAtMillis = 10L
+            )
+        ).toInt()
+        val id = db.babyPhotoDao().insertPhoto(
+            BabyPhoto(uriString = "content://e", title = "E", description = "", takenDate = "2026-05-05")
+        ).toInt()
+        db.photoAnalysisDao().insert(analysis(id, 70f, "B"))
+
+        repo.invalidateAnalyses()
+
+        assertTrue(repo.getAnalyzedPhotoIds().isEmpty())
+        assertNotNull(db.aiCurationSessionDao().getById(sessionId))
+    }
+
+    @Test
+    fun `targeted updates change one column without clobbering the rest`() = runBlocking {
+        val dao = db.babyPhotoDao()
+        val id = dao.insertPhoto(
+            BabyPhoto(uriString = "content://f", title = "F", description = "", takenDate = "2026-05-06")
+        ).toInt()
+
+        dao.markBest(listOf(id), 1234L)
+        dao.setInPrintCart(id, true)
+        dao.updatePrintOptions(id, "5x7", 3)
+        dao.incrementMatchWins(id)
+        dao.incrementMatchWins(id)
+        dao.incrementChampionships(id)
+
+        val photo = dao.getPhotoById(id)!!
+        assertTrue(photo.isSelectedAsBest)
+        assertEquals(1234L, photo.bestSelectedTimestamp)
+        assertTrue(photo.isInPrintCart)
+        assertEquals("5x7", photo.printSize)
+        assertEquals(3, photo.printQuantity)
+        assertEquals(2, photo.matchesCount)
+        assertEquals(1, photo.winsCount)
+
+        dao.unmarkBest(id)
+        dao.clearPrintCart()
+        val after = dao.getPhotoById(id)!!
+        assertTrue(!after.isSelectedAsBest && !after.isInPrintCart)
+        assertEquals(1, after.winsCount)
+    }
 }

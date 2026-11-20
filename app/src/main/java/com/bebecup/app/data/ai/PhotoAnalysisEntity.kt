@@ -65,6 +65,6 @@ data class PhotoAnalysisEntity(
 ) {
     companion object {
         /** Bump when the scoring pipeline changes so stale rows are recomputed. */
-        const val CURRENT_ANALYSIS_VERSION = 1
+        const val CURRENT_ANALYSIS_VERSION = 2 // v2: EXIF orientation applied before face detection
     }
 }
