@@ -52,15 +52,10 @@ com.bebecup.app
 사용자가 "새 버전 만들기"를 요청하면 버전 bump, CHANGELOG, fastlane changelog(`fastlane/metadata/android/{ko-KR,en-US}/changelogs/<versionCode>.txt`, locale별 500자 이하), 검증, PR 머지, `vX.Y.Z` 태그 푸시까지 진행한다. 바탕화면으로 파일을 내보내지 않는다(2026-11-20 사용자 지시).
 
 - **GitHub**: 태그 푸시 시 릴리스 워크플로가 서명된 APK와 mapping을 GitHub Release에 올린다.
-- **Google Play**: 릴리스 워크플로가 Play 업로드 키로 서명한 AAB를 산출물 `bebecup-release-aab`로 남긴다. 워크플로가 끝나면 아래로 `dist/`(git 제외)에 받는다. 업로드 키 인증서 지문을 확인하고, 같은 이름이 있으면 멈춘다.
-
-```bash
-scripts/play-bundle.sh X.Y.Z
-# → dist/bebecup-play-X.Y.Z-vc<versionCode>-<커밋>.aab, …-release-notes.txt, dist/play-builds.log
-```
-
-- Play Console 업로드는 사용자의 Chrome에서 `pedaiah85@gmail.com` → 개발자 계정 **EL Studio** → 베베컵 → 테스트 및 출시 → **비공개 테스트 - Alpha** → 새 버전 만들기로 한다. 프로덕션은 사용자가 따로 지시할 때만.
-- Chrome 확장의 파일 업로드는 10MB까지라 AAB(약 22MB)는 사용자가 업로드 칸에 끌어다 놓는다. 출시 노트 입력·검토·출시는 이어서 진행한다.
+- **Google Play**: 같은 워크플로의 `play-alpha` 작업이 Play 업로드 키로 서명한 AAB를 Google Play Developer Publishing API로 **비공개 테스트 - Alpha** 트랙에 올린다(출시 노트는 위 fastlane changelog, mapping 포함). 기본은 **draft**라 태그 푸시 후 Play Console에서 초안을 확인하고 '검토 → 출시'를 누른다(저장소 변수 `PLAY_RELEASE_STATUS=completed`면 바로 출시). 결과는 `play-alpha` 작업 로그로 확인한다. 세부와 서비스 계정 준비는 `docs/RELEASE.md`, 설계는 `DECISIONS.md`.
+  - 시크릿 `PLAY_SERVICE_ACCOUNT_JSON`이 없으면 작업이 경고만 남기고 건너뛴다. 이때나 업로드가 실패해 다시 올릴 때는 `scripts/play-upload.sh X.Y.Z`(키: `.keystore/play-service-account.json`, `dist/`에 AAB가 없으면 `scripts/play-bundle.sh`로 먼저 받음)를 쓴다.
+  - 프로덕션은 사용자가 따로 지시할 때만 `--track production --allow-production`으로 올린다. 워크플로는 alpha만 쓴다.
+- **수동 업로드(자동 업로드를 못 쓸 때)**: `scripts/play-bundle.sh X.Y.Z`로 `dist/`에 받고(업로드 키 인증서 지문 확인, 같은 이름이 있으면 멈춤), 사용자의 Chrome에서 `pedaiah85@gmail.com` → 개발자 계정 **EL Studio** → 베베컵 → 테스트 및 출시 → **비공개 테스트 - Alpha** → 새 버전 만들기로 올린다. Chrome 확장의 파일 업로드는 10MB까지라 AAB(약 22MB)는 사용자가 업로드 칸에 끌어다 놓고, 출시 노트 입력·검토·출시는 이어서 진행한다.
 
 ## Commit Style
 

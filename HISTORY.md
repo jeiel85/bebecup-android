@@ -1,5 +1,12 @@
 # History
 
+## 2026-11-21 (Play Alpha 업로드 자동화)
+
+- **문제**: 태그 CI가 만든 22MB AAB를 Chrome 확장(10MB 제한)으로 올릴 수 없어 v0.7.0(vc6) Alpha 업로드를 사용자가 직접 끌어다 놓아야 했음.
+- **결정**: gradle-play-publisher·fastlane supply·서드파티 Action·직접 API 스크립트를 비교해 직접 API 스크립트를 택함(`DECISIONS.md`).
+- **구현**: `scripts/play_upload.py`(edit → AAB → mapping → alpha 트랙 → commit, 실패 시 edit 삭제, 기본 draft, production은 `--allow-production` 필요), 릴리스 워크플로 `play-alpha` 작업(시크릿 `PLAY_SERVICE_ACCOUNT_JSON` 없으면 경고 후 건너뜀), 로컬 재시도 `scripts/play-upload.sh`.
+- **검증**: 단위 테스트 8건(가짜 세션), 실제 google-auth/requests로 로컬 가짜 Play API 서버에 토큰 발급부터 commit까지 끝까지 업로드, `scripts/play-upload.sh 0.7.0 --dry-run`(v0.7.0 CI 산출물 받기·서명 지문·mapping 받기 포함). 실제 Play API 호출은 서비스 계정 키가 없어 확인하지 못함.
+
 ## 2026-11-20 (v0.7.0 여정 재구성)
 
 - **컨셉 점검**: "쌓이면 넛지 → 정리 → 월드컵 → 나중에 인화" 기준으로 보니 넛지는 버튼으로 띄우는 가짜 배너, 승인 결과는 메모리에만 있어 재시작 시 소실, 인화는 가짜 진행 화면 뒤 찍스 홈만 여는 상태였음.
