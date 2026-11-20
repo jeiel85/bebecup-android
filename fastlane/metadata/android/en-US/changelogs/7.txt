@@ -1,0 +1,7 @@
+• Gentle reminder when unsorted baby photos pile up (opt-in)
+• Photos you approve are now saved to your Best Box
+• Family photo world cup from your Best Box; winners go to the Print Box
+• Send your Print Box to any print app or site in one go
+• Fixed face detection on portrait photos and the "skip blurry" setting
+• Fresh, soft new illustrations and app icon
+• Much smaller app: face detection is downloaded once on first use

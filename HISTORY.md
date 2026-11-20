@@ -1,5 +1,11 @@
 # History
 
+## 2026-11-21 (v0.7.1 앱 용량 다이어트)
+
+- **문제**: v0.7.0 Play AAB가 약 21.5MB. 그중 번들형 ML Kit 얼굴 인식 네이티브 라이브러리(4개 ABI, 약 13MB)와 모델(약 3MB)이 대부분이었음. 다른 앱(4~9MB)과 달리 Chrome 확장 업로드 한도(10MB)를 넘었음.
+- **변경**: `com.google.mlkit:face-detection` → `com.google.android.gms:play-services-mlkit-face-detection`(비번들). `ai/FaceModelInstaller`가 Play 서비스 `ModuleInstallClient`로 모델을 받음 — 온보딩 완료 시 백그라운드 요청, 정리 시작 시 없으면 진행률과 함께 받고, 못 받으면 빈 결과 대신 이유를 안내하고 멈춤(`DECISIONS.md`).
+- **검증**: PR에 기록.
+
 ## 2026-11-21 (Play Alpha 업로드 자동화)
 
 - **문제**: 태그 CI가 만든 22MB AAB를 Chrome 확장(10MB 제한)으로 올릴 수 없어 v0.7.0(vc6) Alpha 업로드를 사용자가 직접 끌어다 놓아야 했음.

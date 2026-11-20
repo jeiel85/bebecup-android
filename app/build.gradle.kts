@@ -63,8 +63,8 @@ android {
     applicationId = "com.bebecup.app"
     minSdk = 24
     targetSdk = 36
-    versionCode = 6
-    versionName = "0.7.0"
+    versionCode = 7
+    versionName = "0.7.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -154,7 +154,8 @@ dependencies {
   implementation(libs.coil.compose)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
-  implementation(libs.mlkit.face.detection)
+  implementation(libs.play.services.base)
+  implementation(libs.play.services.mlkit.face.detection)
   // implementation(libs.play.services.location)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)

@@ -41,9 +41,19 @@ fun AiScanProgressScreen(viewModel: BabyCupViewModel) {
     ) {
         if (viewModel.aiScanFailed) {
             Illustration(R.drawable.illus_empty, size = 200.dp)
-            Text("사진을 살펴보다 멈췄어요", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            val modelMissing = viewModel.aiFaceModelMissing
             Text(
-                "잠시 후 다시 시도해 주세요. 계속 안 되면 사진 접근 권한을 확인해 주세요.",
+                if (modelMissing) "얼굴 인식 기능을 받지 못했어요" else "사진을 살펴보다 멈췄어요",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                if (modelMissing) {
+                    "처음 한 번은 Google Play 서비스에서 얼굴 인식 기능을 받아야 해요. " +
+                        "인터넷에 연결한 뒤 다시 시도해 주세요. Google Play 서비스가 없는 기기에서는 쓸 수 없어요."
+                } else {
+                    "잠시 후 다시 시도해 주세요. 계속 안 되면 사진 접근 권한을 확인해 주세요."
+                },
                 fontSize = 13.sp,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -62,7 +72,20 @@ fun AiScanProgressScreen(viewModel: BabyCupViewModel) {
             color = MaterialTheme.colorScheme.primary
         )
         val total = viewModel.aiTotalCount
-        if (total > 0) {
+        val modelProgress = viewModel.aiFaceModelProgress
+        if (viewModel.aiProgressStep == BabyCupViewModel.STEP_FACE_MODEL) {
+            if (modelProgress != null) {
+                LinearProgressIndicator(progress = { modelProgress }, modifier = Modifier.fillMaxWidth(0.8f))
+            } else {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth(0.8f))
+            }
+            Text(
+                "처음 한 번만 받아요. 사진은 기기 밖으로 나가지 않아요.",
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            )
+        } else if (total > 0) {
             LinearProgressIndicator(
                 progress = { (viewModel.aiAnalyzedCount.toFloat() / total).coerceIn(0f, 1f) },
                 modifier = Modifier.fillMaxWidth(0.8f)
