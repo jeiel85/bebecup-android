@@ -73,8 +73,8 @@
 # Unsigned release bundle (검증용)
 ./gradlew :app:bundleRelease
 
-# Signed release bundle + 데스크톱으로 export
-./gradlew :app:exportReleaseToDesktop
+# Play 업로드용 AAB를 dist/에 준비 (태그 vX.Y.Z 릴리스 워크플로가 서명한 산출물)
+scripts/play-bundle.sh X.Y.Z
 ```
 
 ### 릴리즈 서명

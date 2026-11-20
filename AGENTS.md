@@ -49,29 +49,18 @@ com.bebecup.app
 
 ## Release Artifact Export
 
-사용자가 "새 버전 만들기"를 요청하면 버전 bump, changelog, fastlane changelog, 검증, commit/tag 작업과 함께 바탕화면에 Play Console 제출용 파일을 내보낸다.
+사용자가 "새 버전 만들기"를 요청하면 버전 bump, CHANGELOG, fastlane changelog(`fastlane/metadata/android/{ko-KR,en-US}/changelogs/<versionCode>.txt`, locale별 500자 이하), 검증, PR 머지, `vX.Y.Z` 태그 푸시까지 진행한다. 바탕화면으로 파일을 내보내지 않는다(2026-11-20 사용자 지시).
+
+- **GitHub**: 태그 푸시 시 릴리스 워크플로가 서명된 APK와 mapping을 GitHub Release에 올린다.
+- **Google Play**: 릴리스 워크플로가 Play 업로드 키로 서명한 AAB를 산출물 `bebecup-release-aab`로 남긴다. 워크플로가 끝나면 아래로 `dist/`(git 제외)에 받는다. 업로드 키 인증서 지문을 확인하고, 같은 이름이 있으면 멈춘다.
 
 ```bash
-./gradlew :app:exportReleaseToDesktop
+scripts/play-bundle.sh X.Y.Z
+# → dist/bebecup-play-X.Y.Z-vc<versionCode>-<커밋>.aab, …-release-notes.txt, dist/play-builds.log
 ```
 
-이 task는 `bundleRelease`에 의존하므로 AAB도 함께 빌드된다. 산출물:
-
-- AAB 파일: `bebecup-vX.Y.Z.aab`
-- 릴리즈 노트 TXT 파일: `bebecup-vX.Y.Z-release-notes.txt`
-
-릴리즈 노트는 `fastlane/metadata/android/{ko-KR,en-US}/changelogs/<versionCode>.txt`를 읽어 아래 형식으로 생성한다.
-
-```text
-<ko-KR>
-...
-</ko-KR>
-<en-US>
-...
-</en-US>
-```
-
-따라서 새 버전 생성 전에 두 fastlane changelog 파일이 새 `versionCode` 파일명으로 작성되어 있어야 한다. 누락되거나 locale별 500자를 넘으면 task가 실패한다.
+- Play Console 업로드는 사용자의 Chrome에서 `pedaiah85@gmail.com` → 개발자 계정 **EL Studio** → 베베컵 → 테스트 및 출시 → **비공개 테스트 - Alpha** → 새 버전 만들기로 한다. 프로덕션은 사용자가 따로 지시할 때만.
+- Chrome 확장의 파일 업로드는 10MB까지라 AAB(약 22MB)는 사용자가 업로드 칸에 끌어다 놓는다. 출시 노트 입력·검토·출시는 이어서 진행한다.
 
 ## Commit Style
 

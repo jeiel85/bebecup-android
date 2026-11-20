@@ -24,3 +24,6 @@ signing.properties
 # JVM crash dumps from low-memory Gradle runs
 hs_err_pid*.log
 replay_pid*.log
+
+# Play upload bundles prepared by scripts/play-bundle.sh
+dist/

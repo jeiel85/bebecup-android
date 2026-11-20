@@ -18,6 +18,7 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -122,12 +123,15 @@ class JourneyFlowTest {
         assertEquals("준결승 (4강)", viewModel.currentRoundName)
         assertEquals("2 / 2", viewModel.currentMatchLabel)
 
-        var safety = 0
-        while (viewModel.currentMatch != null && safety++ < 5) {
-            compose.mainClock.advanceTimeBy(VOTE_SETTLE_MS)
-            compose.onNodeWithTag("vote_left_candidate").performClick()
+        // The UI tap guard is covered above; play the remaining matches through
+        // the ViewModel so the result doesn't depend on frame/clock timing
+        // (tapping here was flaky on CI).
+        repeat(5) {
+            val match = viewModel.currentMatch ?: return@repeat
+            compose.runOnIdle { viewModel.vote(match, match.left) }
             compose.waitForIdle()
         }
+        assertNull("bracket of 4 should be decided after 3 votes", viewModel.currentMatch)
         // The champion is saved to Room before the winner screen opens, which
         // can outlast one idle pass on a slow CI runner.
         compose.waitUntil(timeoutMillis = 10_000) { viewModel.currentScreen is UiScreen.WorldCupWinner }

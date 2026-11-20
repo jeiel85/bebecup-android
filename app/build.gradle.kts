@@ -1,13 +1,5 @@
 import java.io.File
 import java.util.Properties
-import org.gradle.api.DefaultTask
-import org.gradle.api.file.RegularFileProperty
-import org.gradle.api.provider.Property
-import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.InputFile
-import org.gradle.api.tasks.PathSensitive
-import org.gradle.api.tasks.PathSensitivity
-import org.gradle.api.tasks.TaskAction
 
 plugins {
   alias(libs.plugins.android.application)
@@ -61,82 +53,6 @@ if (requireReleaseSigning && !hasReleaseSigningConfig) {
 
 if (requireReleaseSigning && !rootProject.file(releaseStoreFile!!).exists()) {
   throw GradleException("Release signing is required, but the keystore file does not exist: $releaseStoreFile")
-}
-
-abstract class ExportReleaseToDesktopTask : DefaultTask() {
-  @get:Input
-  abstract val releaseVersionName: Property<String>
-
-  @get:Input
-  abstract val releaseVersionCode: Property<Int>
-
-  @get:InputFile
-  @get:PathSensitive(PathSensitivity.RELATIVE)
-  abstract val releaseAab: RegularFileProperty
-
-  @get:InputFile
-  @get:PathSensitive(PathSensitivity.RELATIVE)
-  abstract val koChangelog: RegularFileProperty
-
-  @get:InputFile
-  @get:PathSensitive(PathSensitivity.RELATIVE)
-  abstract val enChangelog: RegularFileProperty
-
-  @TaskAction
-  fun export() {
-    val home = File(System.getProperty("user.home"))
-    val candidates = listOf(
-      File(home, "OneDrive/바탕 화면"),
-      File(home, "OneDrive/Desktop"),
-      File(home, "Desktop"),
-    )
-    val desktop = candidates.firstOrNull { it.isDirectory }
-      ?: throw GradleException(
-        "Could not find a Desktop directory. Tried:\n" +
-          candidates.joinToString("\n") { "  - ${it.absolutePath}" }
-      )
-
-    val aab = releaseAab.get().asFile
-    if (!aab.isFile) {
-      throw GradleException("Release AAB not found at ${aab.absolutePath}. Check the bundleRelease log.")
-    }
-    val versionName = releaseVersionName.get()
-    val versionCode = releaseVersionCode.get()
-    // Per the user's cross-project convention: artifacts land flat in Desktop\Build\
-    // named <project>-v<semver>-vc<code> so multiple builds never collide.
-    val buildDir = File(desktop, "Build").apply { mkdirs() }
-    val aabTarget = File(buildDir, "bebecup-v$versionName-vc$versionCode.aab")
-    aab.copyTo(aabTarget, overwrite = true)
-    logger.lifecycle("Wrote ${aabTarget.absolutePath} (${aab.length()} bytes)")
-
-    val koSrc = koChangelog.get().asFile
-    val enSrc = enChangelog.get().asFile
-    listOf(koSrc, enSrc).forEach { f ->
-      if (!f.isFile) {
-        throw GradleException(
-          "Missing fastlane changelog: ${f.absolutePath}. " +
-            "Author both ko-KR and en-US changelogs for versionCode ${releaseVersionCode.get()} before cutting."
-        )
-      }
-      val len = f.readText().length
-      if (len > 500) {
-        throw GradleException("${f.name} is $len chars; Play Console limit is 500 per locale.")
-      }
-    }
-
-    val txtTarget = File(buildDir, "bebecup-v$versionName-vc$versionCode-release-notes.txt")
-    txtTarget.writeText(
-      buildString {
-        append("<ko-KR>\n")
-        append(koSrc.readText().trim())
-        append("\n</ko-KR>\n")
-        append("<en-US>\n")
-        append(enSrc.readText().trim())
-        append("\n</en-US>\n")
-      }
-    )
-    logger.lifecycle("Wrote ${txtTarget.absolutePath}")
-  }
 }
 
 android {
@@ -201,24 +117,6 @@ android {
 // Export Room schemas so we can author + verify explicit migrations.
 ksp {
   arg("room.schemaLocation", "$projectDir/schemas")
-}
-
-val defaultVersionName = android.defaultConfig.versionName
-  ?: throw GradleException("versionName is not set in defaultConfig")
-val defaultVersionCode = android.defaultConfig.versionCode
-  ?: throw GradleException("versionCode is not set in defaultConfig")
-
-val exportReleaseToDesktop by tasks.registering(ExportReleaseToDesktopTask::class) {
-  group = "bebecup"
-  description = "Copies the release AAB and bilingual Play release-notes TXT to the user's Desktop"
-
-  dependsOn("bundleRelease")
-
-  releaseVersionName.set(defaultVersionName)
-  releaseVersionCode.set(defaultVersionCode)
-  releaseAab.set(layout.buildDirectory.file("outputs/bundle/release/app-release.aab"))
-  koChangelog.set(rootProject.layout.projectDirectory.file("fastlane/metadata/android/ko-KR/changelogs/$defaultVersionCode.txt"))
-  enChangelog.set(rootProject.layout.projectDirectory.file("fastlane/metadata/android/en-US/changelogs/$defaultVersionCode.txt"))
 }
 
 // Configure the Secrets Gradle Plugin to use .env and .env.example files
