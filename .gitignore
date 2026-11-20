@@ -20,3 +20,7 @@ release-signing.properties
 signing.properties
 .secrets/
 .keystore/
+
+# JVM crash dumps from low-memory Gradle runs
+hs_err_pid*.log
+replay_pid*.log

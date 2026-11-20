@@ -1,7 +1,9 @@
 package com.bebecup.app
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.viewModels
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -30,11 +32,8 @@ import com.bebecup.app.ui.ai.AiScanSetupScreen
 import com.bebecup.app.ui.dashboard.DashboardView
 import com.bebecup.app.ui.history.TournamentHistoryListView
 import com.bebecup.app.ui.onboarding.OnboardingScreen
-import com.bebecup.app.ui.photo.BestShotSelectorView
-import com.bebecup.app.ui.photo.PhotoManagerView
+import com.bebecup.app.ui.photo.BestBoxScreen
 import com.bebecup.app.ui.print.PrintCartView
-import com.bebecup.app.ui.print.ZzixxSuccessDialog
-import com.bebecup.app.ui.print.ZzixxTransferingOverlay
 import com.bebecup.app.ui.settings.SettingsScreen
 import com.bebecup.app.ui.theme.MyApplicationTheme
 import com.bebecup.app.ui.tournament.WorldCupPlayView
@@ -44,14 +43,29 @@ import com.bebecup.app.ui.viewmodel.BabyCupViewModel
 import com.bebecup.app.ui.viewmodel.UiScreen
 
 class MainActivity : ComponentActivity() {
+    private val viewModel: BabyCupViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        if (savedInstanceState == null) viewModel.handleLaunchIntent(intent)
         setContent {
             MyApplicationTheme {
-                MainContentScreen()
+                MainContentScreen(viewModel)
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        viewModel.handleLaunchIntent(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Photos may have been taken (or permissions changed) while away.
+        viewModel.refreshHomeStatus()
     }
 }
 
@@ -59,7 +73,6 @@ class MainActivity : ComponentActivity() {
 fun MainContentScreen(
     viewModel: BabyCupViewModel = viewModel()
 ) {
-    val allPhotos by viewModel.allPhotos.collectAsState()
     val bestPhotos by viewModel.bestPhotos.collectAsState()
     val printCartPhotos by viewModel.printCartPhotos.collectAsState()
     val tournaments by viewModel.tournaments.collectAsState()
@@ -85,7 +98,7 @@ fun MainContentScreen(
             AnimatedContent(
                 targetState = viewModel.currentScreen,
                 transitionSpec = {
-                    fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
+                    fadeIn(animationSpec = tween(250)) togetherWith fadeOut(animationSpec = tween(250))
                 },
                 label = "screen_transition"
             ) { screen ->
@@ -93,35 +106,24 @@ fun MainContentScreen(
                     is UiScreen.Onboarding -> OnboardingScreen(viewModel = viewModel)
                     is UiScreen.Dashboard -> DashboardView(
                         viewModel = viewModel,
-                        allPhotos = allPhotos,
+                        bestPhotos = bestPhotos,
+                        printCartPhotos = printCartPhotos,
+                        tournaments = tournaments
+                    )
+                    is UiScreen.BestBox -> BestBoxScreen(
+                        viewModel = viewModel,
                         bestPhotos = bestPhotos,
                         printCartPhotos = printCartPhotos
                     )
-                    is UiScreen.PhotoManager -> PhotoManagerView(
-                        viewModel = viewModel,
-                        allPhotos = allPhotos
-                    )
-                    is UiScreen.BestShotSelector -> BestShotSelectorView(
-                        viewModel = viewModel,
-                        allPhotos = allPhotos
-                    )
-                    is UiScreen.WorldCupSetup -> WorldCupSetupView(
-                        viewModel = viewModel,
-                        bestPhotos = bestPhotos,
-                        allPhotos = allPhotos
-                    )
-                    is UiScreen.WorldCupPlay -> WorldCupPlayView(
-                        viewModel = viewModel
-                    )
+                    is UiScreen.WorldCupSetup -> WorldCupSetupView(viewModel = viewModel, bestPhotos = bestPhotos)
+                    is UiScreen.WorldCupPlay -> WorldCupPlayView(viewModel = viewModel)
                     is UiScreen.WorldCupWinner -> WorldCupWinnerCelebrationView(
                         viewModel = viewModel,
                         winner = screen.winner,
-                        bracketSize = screen.bracketSize
+                        bracketSize = screen.bracketSize,
+                        inPrintCart = printCartPhotos.any { it.id == screen.winner.id }
                     )
-                    is UiScreen.PrintCart -> PrintCartView(
-                        viewModel = viewModel,
-                        cartPhotos = printCartPhotos
-                    )
+                    is UiScreen.PrintCart -> PrintCartView(viewModel = viewModel, cartPhotos = printCartPhotos)
                     is UiScreen.TournamentHistoryList -> TournamentHistoryListView(
                         viewModel = viewModel,
                         tournaments = tournaments
@@ -131,19 +133,6 @@ fun MainContentScreen(
                     is UiScreen.AiCurationResult -> AiCurationResultScreen(viewModel = viewModel)
                     is UiScreen.Settings -> SettingsScreen(viewModel = viewModel)
                 }
-            }
-
-            // ZZIXX order handoff overlay
-            if (viewModel.isSendingToZzixx) {
-                ZzixxTransferingOverlay()
-            }
-
-            // ZZIXX order handoff dialog
-            if (viewModel.showZzixxSuccessDialog) {
-                ZzixxSuccessDialog(
-                    onDismiss = { viewModel.showZzixxSuccessDialog = false },
-                    cartPhotos = printCartPhotos
-                )
             }
         }
     }

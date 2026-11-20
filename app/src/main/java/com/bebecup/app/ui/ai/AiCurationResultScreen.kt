@@ -24,7 +24,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bebecup.app.domain.model.PhotoQualityGrade
 import com.bebecup.app.domain.model.ShortlistItem
+import com.bebecup.app.R
 import com.bebecup.app.ui.components.BabyPhotoIllustration
+import com.bebecup.app.ui.components.EmptyState
+import com.bebecup.app.ui.components.ScreenHeader
 import com.bebecup.app.ui.viewmodel.BabyCupViewModel
 import com.bebecup.app.ui.viewmodel.UiScreen
 
@@ -40,29 +43,11 @@ fun AiCurationResultScreen(viewModel: BabyCupViewModel) {
             .fillMaxSize()
             .testTag("ai_curation_result_view")
     ) {
-        // Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(
-                onClick = { viewModel.navigateTo(UiScreen.Dashboard) },
-                modifier = Modifier.background(MaterialTheme.colorScheme.surface, CircleShape)
-            ) {
-                Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "홈으로")
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text("베베컵 추천 결과", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text(
-                    "총 ${viewModel.aiTotalCount}장 중 ${shortlist.size}장을 추천했어요",
-                    fontSize = 11.sp,
-                    color = Color.Gray
-                )
-            }
-        }
+        ScreenHeader(
+            title = "베베컵 추천 결과",
+            subtitle = "총 ${viewModel.aiTotalCount}장 중 ${shortlist.size}장을 추천했어요",
+            onBack = { viewModel.navigateHome() }
+        )
 
         // Stats summary
         Row(
@@ -85,19 +70,23 @@ fun AiCurationResultScreen(viewModel: BabyCupViewModel) {
             )
         }
 
-        if (shortlist.isEmpty()) {
+        val rejected = viewModel.aiRejectedItems
+        if (shortlist.isEmpty() && rejected.isEmpty()) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("추천할 만한 사진을 찾지 못했어요.", fontSize = 13.sp, color = Color.Gray)
-                    Text("기간을 넓혀 다시 시도해보세요.", fontSize = 11.sp, color = Color.Gray)
-                    Button(onClick = { viewModel.navigateTo(UiScreen.AiScanSetup) }) {
-                        Text("다시 골라보기", fontSize = 12.sp)
-                    }
+                EmptyState(
+                    illustration = R.drawable.illus_empty,
+                    title = if (viewModel.aiTotalCount == 0) "새로 쌓인 사진이 없어요" else "추천할 만한 사진을 찾지 못했어요",
+                    body = if (viewModel.aiTotalCount == 0) "이 기간에는 정리할 사진이 없어요. 기간을 넓혀 볼 수도 있어요."
+                    else "얼굴이 잘 보이는 사진이 적었어요. 기간을 넓혀 다시 골라 보세요."
+                ) {
+                    Button(onClick = { viewModel.navigateTo(UiScreen.AiScanSetup) }) { Text("기간 바꿔 다시 골라보기") }
+                    TextButton(onClick = { viewModel.saveCurationRound(thenPlay = false) }) { Text("이번 정리는 끝내기") }
                 }
             }
         } else {
             Text(
-                "베베컵이 고른 베스트예요 — 빼고 싶은 사진은 '제외'를 눌러주세요.",
+                if (shortlist.isEmpty()) "추천 기준을 넘은 사진은 없었어요. 아래 아쉬운 후보 중 마음에 드는 사진을 담아 보세요."
+                else "베베컵이 고른 후보예요. 빼고 싶은 사진은 '추천 유지'를 눌러 제외해 주세요.",
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 modifier = Modifier.padding(16.dp)
@@ -116,9 +105,10 @@ fun AiCurationResultScreen(viewModel: BabyCupViewModel) {
                 }
 
                 // "아쉬운 후보(제외)" section — gently phrased, never deleted (spec §11.5, §15.3).
-                val rejected = viewModel.aiRejectedItems
+                // With an empty shortlist it is the only content, so it is always open.
+                val rejectedOpen = showRejected || shortlist.isEmpty()
                 if (rejected.isNotEmpty()) {
-                    item {
+                    if (shortlist.isNotEmpty()) item {
                         TextButton(onClick = { showRejected = !showRejected }) {
                             Text(
                                 if (showRejected) "아쉬운 후보 접기"
@@ -128,7 +118,7 @@ fun AiCurationResultScreen(viewModel: BabyCupViewModel) {
                             )
                         }
                     }
-                    if (showRejected) {
+                    if (rejectedOpen) {
                         item {
                             Text(
                                 "제외된 사진도 삭제되지 않아요. 마음에 들면 '추천 유지'로 다시 담을 수 있어요.",
@@ -148,38 +138,44 @@ fun AiCurationResultScreen(viewModel: BabyCupViewModel) {
                 }
             }
 
-            // Start tournament from approved AI shortlist (default flow, spec §11.6)
+            // Save the round: approved photos go to the 보관함 (and optionally straight into a world cup).
             Surface(shadowElevation = 8.dp) {
-                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                    val bracket = pickBracketSize(approvedCount)
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Button(
-                        onClick = { viewModel.startWorldCupFromShortlist(bracket) },
+                        onClick = { viewModel.saveCurationRound(thenPlay = true) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(50.dp)
+                            .height(52.dp)
                             .testTag("start_worldcup_from_ai_btn"),
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(16.dp),
                         enabled = approvedCount >= 2
                     ) {
-                        Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null)
-                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            if (approvedCount >= 2) "고른 사진으로 월드컵 시작 (${bracket}강)"
-                            else "최소 2장을 승인해주세요",
+                            if (approvedCount >= 2) "${approvedCount}장 보관하고 바로 월드컵"
+                            else "월드컵은 2장 이상부터 할 수 있어요",
                             fontWeight = FontWeight.ExtraBold,
-                            fontSize = 14.sp
+                            fontSize = 15.sp
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = { viewModel.saveCurationRound(thenPlay = false) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("save_round_button"),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text(
+                            if (approvedCount > 0) "${approvedCount}장 보관함에만 담기" else "담지 않고 정리 끝내기",
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
             }
         }
     }
-}
-
-private fun pickBracketSize(approvedCount: Int): Int = when {
-    approvedCount >= 16 -> 16
-    approvedCount >= 8 -> 8
-    else -> 4
 }
 
 @Composable

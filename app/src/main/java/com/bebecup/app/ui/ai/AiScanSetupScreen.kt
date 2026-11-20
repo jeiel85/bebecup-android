@@ -1,19 +1,34 @@
 package com.bebecup.app.ui.ai
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -22,142 +37,125 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
+import com.bebecup.app.R
+import com.bebecup.app.data.media.PhotoAccess
+import com.bebecup.app.data.prefs.BebecupPrefs
+import com.bebecup.app.ui.components.Illustration
+import com.bebecup.app.ui.components.ScreenHeader
 import com.bebecup.app.ui.viewmodel.BabyCupViewModel
-import com.bebecup.app.ui.viewmodel.UiScreen
 
-private val photoPermission: String
-    get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        Manifest.permission.READ_MEDIA_IMAGES
-    } else {
-        Manifest.permission.READ_EXTERNAL_STORAGE
-    }
-
-// AI Scan Setup (spec §11.1)
+/** ① 정리하기: choose which photos BebeCup looks at, then start the on-device pass. */
 @Composable
 fun AiScanSetupScreen(viewModel: BabyCupViewModel) {
     val context = LocalContext.current
-    var showDeleteConfirm by remember { mutableStateOf(false) }
     var showPermissionRationale by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            viewModel.startAiCuration()
-        } else {
-            showPermissionRationale = true
-        }
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ ->
+        if (PhotoAccess.canReadPhotos(context)) viewModel.startAiCuration()
+        else showPermissionRationale = true
     }
 
     fun launchScan() {
-        val alreadyGranted = ContextCompat.checkSelfPermission(context, photoPermission) ==
-            PackageManager.PERMISSION_GRANTED
-        if (alreadyGranted) {
-            viewModel.startAiCuration()
-        } else {
-            permissionLauncher.launch(photoPermission)
-        }
+        if (PhotoAccess.canReadPhotos(context)) viewModel.startAiCuration()
+        else permissionLauncher.launch(PhotoAccess.requestPermissions)
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .testTag("ai_scan_setup_view")
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(
-                onClick = { viewModel.navigateTo(UiScreen.Dashboard) },
-                modifier = Modifier.background(MaterialTheme.colorScheme.surface, CircleShape)
-            ) {
-                Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "뒤로")
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Text("베베컵 사진 엄선", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        }
+        ScreenHeader(title = "베스트 골라보기", onBack = { viewModel.navigateBack() })
 
-        Text(
-            text = "베베컵이 이번 주 베스트 아기사진을 골라드릴게요",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-
-        // Scan range chips
-        Text("어느 기간의 사진을 볼까요?", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            val ranges = listOf(1 to "오늘", 7 to "최근 7일", 30 to "최근 30일")
-            ranges.forEach { (days, label) ->
-                val selected = viewModel.aiScanRangeDays == days
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .background(
-                            if (selected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
-                            RoundedCornerShape(12.dp)
-                        )
-                        .clickable { viewModel.updateScanRangeDays(days) }
-                        .padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        label,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (selected) Color.White else MaterialTheme.colorScheme.onBackground
-                    )
-                }
-            }
-        }
-
-        // Toggles
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            modifier = Modifier.fillMaxWidth()
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(modifier = Modifier.padding(8.dp)) {
-                ToggleRow("자는 사진도 좋은 사진으로 포함", viewModel.aiSleepingModeEnabled) {
-                    viewModel.updateSleepingMode(it)
-                }
-                ToggleRow("비슷한 사진은 한 장만 추천", viewModel.aiSimilarOnly) {
-                    viewModel.updateSimilarOnly(it)
-                }
-                ToggleRow("흔들린 사진은 자동 제외", viewModel.aiExcludeBlurry) {
-                    viewModel.updateExcludeBlurry(it)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "흔들리거나 눈 감은 사진은 걸러 내고, 베스트 후보를 먼저 추려 드릴게요. 마지막 선택은 부모님 몫이에요.",
+                    fontSize = 14.sp,
+                    lineHeight = 21.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Illustration(R.drawable.illus_curate, size = 108.dp)
+            }
+
+            Text("어느 사진을 볼까요?", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            val sinceLabel = if (viewModel.lastReviewedAtMillis > 0L) "지난 정리 이후" else "최근 2주"
+            val ranges = listOf(
+                BebecupPrefs.SCAN_SINCE_LAST_REVIEW to sinceLabel,
+                7 to "최근 7일",
+                30 to "최근 30일"
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                ranges.forEach { (days, label) ->
+                    val selected = viewModel.aiScanRangeDays == days
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(
+                                if (selected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                RoundedCornerShape(14.dp)
+                            )
+                            .clickable { viewModel.updateScanRangeDays(days) }
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            label,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (selected) Color.White else MaterialTheme.colorScheme.onBackground
+                        )
+                    }
                 }
             }
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(8.dp)) {
+                    ToggleRow("자는 사진도 좋은 사진으로 포함", viewModel.aiSleepingModeEnabled) {
+                        viewModel.updateSleepingMode(it)
+                    }
+                    ToggleRow("비슷한 사진은 한 장만 추천", viewModel.aiSimilarOnly) {
+                        viewModel.updateSimilarOnly(it)
+                    }
+                    ToggleRow("흔들린 사진은 추천에서 빼기", viewModel.aiExcludeBlurry) {
+                        viewModel.updateExcludeBlurry(it)
+                    }
+                }
+            }
+
+            Text(
+                "베베컵은 사진을 기기 안에서만 살펴봐요. 사진은 밖으로 나가지 않아요.",
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            )
+            Spacer(Modifier.height(8.dp))
         }
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        // Privacy trust copy (spec §9.1)
-        Text(
-            text = "베베컵은 사진을 기기 안에서만 살펴봐요. 사진은 밖으로 나가지 않아요.\n추천은 참고용이고, 마지막 선택은 언제나 부모님 몫이에요.",
-            fontSize = 11.sp,
-            lineHeight = 16.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-        )
 
         Button(
             onClick = { launchScan() },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp)
+                .padding(16.dp)
+                .height(54.dp)
                 .testTag("start_ai_curation_btn"),
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(18.dp),
             enabled = !viewModel.aiIsScanning
         ) {
-            Text("베베컵에게 맡기기", fontWeight = FontWeight.ExtraBold)
-        }
-
-        TextButton(
-            onClick = { showDeleteConfirm = true },
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        ) {
-            Text("기기에 저장된 분석 데이터 전체 삭제", fontSize = 11.sp, color = Color.Gray)
+            Text("베베컵에게 맡기기", fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
         }
     }
 
@@ -168,7 +166,7 @@ fun AiScanSetupScreen(viewModel: BabyCupViewModel) {
             text = {
                 Text(
                     "베베컵은 최근 사진을 기기 안에서만 살펴봐요. 사진은 밖으로 나가지 않아요. " +
-                        "권한 없이 진행하려면 사진첩에서 직접 골라 월드컵을 시작할 수도 있어요."
+                        "권한 없이도 보관함의 '사진첩에서 담기'로 직접 고를 수 있어요."
                 )
             },
             confirmButton = {
@@ -176,27 +174,10 @@ fun AiScanSetupScreen(viewModel: BabyCupViewModel) {
             }
         )
     }
-
-    if (showDeleteConfirm) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("분석 데이터 삭제") },
-            text = { Text("기기에 저장된 분석 결과·묶음·세션 기록을 모두 지웁니다. 사진 원본은 삭제되지 않아요.") },
-            confirmButton = {
-                Button(onClick = {
-                    viewModel.deleteAllAnalysisData()
-                    showDeleteConfirm = false
-                }) { Text("삭제") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("취소") }
-            }
-        )
-    }
 }
 
 @Composable
-private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+internal fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -204,7 +185,7 @@ private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, fontSize = 13.sp, modifier = Modifier.weight(1f))
+        Text(label, fontSize = 14.sp, modifier = Modifier.weight(1f))
         Switch(checked = checked, onCheckedChange = onChange)
     }
 }

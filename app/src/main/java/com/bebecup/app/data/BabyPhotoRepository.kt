@@ -21,6 +21,23 @@ class BabyPhotoRepository(private val babyPhotoDao: BabyPhotoDao) {
 
     suspend fun clearSelectedBest() = babyPhotoDao.clearSelectedBest()
 
+    suspend fun markBest(ids: List<Int>, timestamp: Long) {
+        if (ids.isNotEmpty()) babyPhotoDao.markBest(ids, timestamp)
+    }
+
+    suspend fun unmarkBest(id: Int) = babyPhotoDao.unmarkBest(id)
+
+    suspend fun incrementMatchWins(id: Int) = babyPhotoDao.incrementMatchWins(id)
+
+    suspend fun incrementChampionships(id: Int) = babyPhotoDao.incrementChampionships(id)
+
+    suspend fun setInPrintCart(id: Int, inCart: Boolean) = babyPhotoDao.setInPrintCart(id, inCart)
+
+    suspend fun updatePrintOptions(id: Int, size: String, quantity: Int) =
+        babyPhotoDao.updatePrintOptions(id, size, quantity)
+
+    suspend fun clearPrintCart() = babyPhotoDao.clearPrintCart()
+
     suspend fun pruneMockPhotos() = babyPhotoDao.pruneMockPhotos()
 
     suspend fun insertTournament(record: TournamentRecord): Long = babyPhotoDao.insertTournament(record)

@@ -32,6 +32,13 @@ interface AiCurationRepository {
 
     /** Privacy: wipe every local AI artifact (analysis, clusters, sessions). */
     suspend fun deleteAllLocalAnalysisData()
+
+    /**
+     * Drop cached scores (and the clusters built from them) so the next scan
+     * re-analyzes every photo — needed when a setting that feeds the score,
+     * like "자는 아기 허용", changes. Session history is kept.
+     */
+    suspend fun invalidateAnalyses()
 }
 
 /**
@@ -84,6 +91,11 @@ class RoomAiCurationRepository(
 
     override fun observeLatestSession(): Flow<AiCurationSessionEntity?> =
         sessionDao.observeLatest()
+
+    override suspend fun invalidateAnalyses() {
+        analysisDao.deleteAll()
+        clusterDao.deleteAll()
+    }
 
     override suspend fun deleteAllLocalAnalysisData() {
         analysisDao.deleteAll()
