@@ -1,5 +1,11 @@
 # History
 
+## 2026-11-21 (Play 업데이트 배너)
+
+- **문제**: Play 비공개 테스트 테스터가 Play 자동 업데이트를 꺼 두면 새 버전이 나와도 모름.
+- **변경**: Play In-App Updates API(`com.google.android.play:app-update`)로 Play 앱에 새 버전이 있는지 묻고(`update/StoreUpdates`), 있으면 홈 맨 위에 배너를 띄워 Play 스토어 페이지를 연다(Claude Usage 앱과 같은 방식). 홈이 앞에 올 때 최대 6시간에 한 번 묻는다. 디버그 빌드는 `--ei debug_fake_update <versionCode>`로 배너를 띄워 볼 수 있다.
+- **검증**: PR에 기록.
+
 ## 2026-11-21 (v0.7.1 앱 용량 다이어트)
 
 - **문제**: v0.7.0 Play AAB가 약 21.5MB. 그중 번들형 ML Kit 얼굴 인식 네이티브 라이브러리(4개 ABI, 약 13MB)와 모델(약 3MB)이 대부분이었음. 다른 앱(4~9MB)과 달리 Chrome 확장 업로드 한도(10MB)를 넘었음.

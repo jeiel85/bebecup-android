@@ -41,6 +41,7 @@ import com.bebecup.app.ui.tournament.WorldCupSetupView
 import com.bebecup.app.ui.tournament.WorldCupWinnerCelebrationView
 import com.bebecup.app.ui.viewmodel.BabyCupViewModel
 import com.bebecup.app.ui.viewmodel.UiScreen
+import com.bebecup.app.update.StoreUpdates
 
 class MainActivity : ComponentActivity() {
     private val viewModel: BabyCupViewModel by viewModels()
@@ -49,6 +50,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         if (savedInstanceState == null) viewModel.handleLaunchIntent(intent)
+        if (BuildConfig.DEBUG) {
+            // Debug builds only: `adb shell am start -n com.bebecup.app/.MainActivity --ei debug_fake_update 99`
+            // pretends Play offers versionCode 99, to see the home update banner.
+            intent.getIntExtra(EXTRA_DEBUG_FAKE_UPDATE, 0).takeIf { it > 0 }?.let(StoreUpdates::useFakeUpdate)
+        }
         setContent {
             MyApplicationTheme {
                 MainContentScreen(viewModel)
@@ -66,6 +72,10 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // Photos may have been taken (or permissions changed) while away.
         viewModel.refreshHomeStatus()
+    }
+
+    private companion object {
+        const val EXTRA_DEBUG_FAKE_UPDATE = "debug_fake_update"
     }
 }
 
