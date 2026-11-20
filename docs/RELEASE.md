@@ -123,7 +123,7 @@ scripts/play-bundle.sh X.Y.Z
 
 - 워크플로 산출물 `bebecup-release-aab`를 받아 서명 인증서가 위 업로드 키 SHA-256과 같은지 확인한다.
 - `dist/bebecup-play-X.Y.Z-vc<versionCode>-<커밋>.aab`와 `…-release-notes.txt`(아래 원천 파일을 `<ko-KR>`/`<en-US>` 블록으로 묶은 것)를 만들고, `dist/play-builds.log`에 시각·버전·커밋·SHA-256을 남긴다. 같은 이름이 있으면 멈춘다.
-- Play Console(`pedaiah85@gmail.com` → 개발자 계정 EL Studio) → 베베컵 → 테스트 및 출시 → 비공개 테스트 - Alpha → 새 버전 만들기 → AAB 업로드 → 출시 노트 → 검토 → 출시. Chrome 확장 업로드는 10MB까지라 AAB(약 22MB)는 사용자가 끌어다 놓는다.
+- Play Console(`pedaiah85@gmail.com` → 개발자 계정 EL Studio) → 베베컵 → 테스트 및 출시 → 비공개 테스트 - Alpha → 새 버전 만들기 → AAB 업로드 → 출시 노트 → 검토 → 출시. Chrome 확장 업로드는 10MB까지다. v0.7.1부터 AAB는 약 5MB(얼굴 인식 모델을 Play 서비스에서 받음)라 확장으로 올릴 수 있고, 10MB를 넘으면 사용자가 끌어다 놓는다.
 
 ### 출시 노트 원천 파일
 

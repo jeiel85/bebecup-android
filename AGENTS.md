@@ -55,7 +55,7 @@ com.bebecup.app
 - **Google Play**: 같은 워크플로의 `play-alpha` 작업이 Play 업로드 키로 서명한 AAB를 Google Play Developer Publishing API로 **비공개 테스트 - Alpha** 트랙에 올린다(출시 노트는 위 fastlane changelog, mapping 포함). 기본은 **draft**라 태그 푸시 후 Play Console에서 초안을 확인하고 '검토 → 출시'를 누른다(저장소 변수 `PLAY_RELEASE_STATUS=completed`면 바로 출시). 결과는 `play-alpha` 작업 로그로 확인한다. 세부와 서비스 계정 준비는 `docs/RELEASE.md`, 설계는 `DECISIONS.md`.
   - 시크릿 `PLAY_SERVICE_ACCOUNT_JSON`이 없으면 작업이 경고만 남기고 건너뛴다. 이때나 업로드가 실패해 다시 올릴 때는 `scripts/play-upload.sh X.Y.Z`(키: `.keystore/play-service-account.json`, `dist/`에 AAB가 없으면 `scripts/play-bundle.sh`로 먼저 받음)를 쓴다.
   - 프로덕션은 사용자가 따로 지시할 때만 `--track production --allow-production`으로 올린다. 워크플로는 alpha만 쓴다.
-- **수동 업로드(자동 업로드를 못 쓸 때)**: `scripts/play-bundle.sh X.Y.Z`로 `dist/`에 받고(업로드 키 인증서 지문 확인, 같은 이름이 있으면 멈춤), 사용자의 Chrome에서 `pedaiah85@gmail.com` → 개발자 계정 **EL Studio** → 베베컵 → 테스트 및 출시 → **비공개 테스트 - Alpha** → 새 버전 만들기로 올린다. Chrome 확장의 파일 업로드는 10MB까지라 AAB(약 22MB)는 사용자가 업로드 칸에 끌어다 놓고, 출시 노트 입력·검토·출시는 이어서 진행한다.
+- **수동 업로드(자동 업로드를 못 쓸 때)**: `scripts/play-bundle.sh X.Y.Z`로 `dist/`에 받고(업로드 키 인증서 지문 확인, 같은 이름이 있으면 멈춤), 사용자의 Chrome에서 `pedaiah85@gmail.com` → 개발자 계정 **EL Studio** → 베베컵 → 테스트 및 출시 → **비공개 테스트 - Alpha** → 새 버전 만들기로 올린다. v0.7.1부터 AAB가 약 5MB라 Chrome 확장의 파일 업로드(10MB까지)로 에이전트가 직접 올린다. 10MB를 넘으면 사용자가 업로드 칸에 끌어다 놓는다. 출시 노트 입력·검토·출시는 이어서 진행한다.
 
 ## Commit Style
 
