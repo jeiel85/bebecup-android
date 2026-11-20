@@ -23,8 +23,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -38,6 +40,9 @@ import androidx.compose.ui.unit.sp
 import com.bebecup.app.data.BabyPhoto
 import com.bebecup.app.ui.components.BabyPhotoIllustration
 import com.bebecup.app.ui.viewmodel.BabyCupViewModel
+import kotlinx.coroutines.delay
+
+private const val VOTE_ARM_DELAY_MS = 350L
 
 /** One match at a time: tap the photo the family likes more. */
 @Composable
@@ -49,6 +54,14 @@ fun WorldCupPlayView(viewModel: BabyCupViewModel) {
         // Bracket finished (winner screen is on its way) or never started.
         Box(Modifier.fillMaxSize())
         return
+    }
+
+    // A fast double tap must not decide the *next* match too: ignore taps until
+    // the new pair has been on screen for a moment.
+    var armed by remember(match) { mutableStateOf(false) }
+    LaunchedEffect(match) {
+        delay(VOTE_ARM_DELAY_MS)
+        armed = true
     }
 
     Column(
@@ -93,7 +106,7 @@ fun WorldCupPlayView(viewModel: BabyCupViewModel) {
             label = "A",
             testTag = "vote_left_candidate",
             modifier = Modifier.weight(1f),
-            onVote = { viewModel.vote(match, match.left) }
+            onVote = { if (armed) viewModel.vote(match, match.left) }
         )
         Box(
             Modifier
@@ -109,7 +122,7 @@ fun WorldCupPlayView(viewModel: BabyCupViewModel) {
             label = "B",
             testTag = "vote_right_candidate",
             modifier = Modifier.weight(1f),
-            onVote = { viewModel.vote(match, match.right) }
+            onVote = { if (armed) viewModel.vote(match, match.right) }
         )
     }
 

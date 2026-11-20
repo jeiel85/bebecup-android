@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -94,7 +96,8 @@ fun BestBoxScreen(
                 shape = RoundedCornerShape(14.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text(" 사진첩에서 담기", fontSize = 13.sp)
+                Spacer(Modifier.width(4.dp))
+                Text("사진첩에서 담기", fontSize = 13.sp)
             }
             Button(
                 onClick = { viewModel.navigateTo(UiScreen.WorldCupSetup) },

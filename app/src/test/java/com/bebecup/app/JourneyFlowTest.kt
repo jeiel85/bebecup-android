@@ -54,6 +54,10 @@ class JourneyFlowTest {
         Thread { AppDatabase.getDatabase(context).clearAllTables() }.apply { start(); join() }
     }
 
+    private companion object {
+        const val VOTE_SETTLE_MS = 500L
+    }
+
     private fun capture(name: String) {
         compose.onRoot().captureRoboImage(filePath = "build/outputs/roborazzi/journey_$name.png")
     }
@@ -109,12 +113,18 @@ class JourneyFlowTest {
         compose.waitForIdle()
         capture("07_worldcup_play")
 
-        // Double tap on the first match must count once: 4 entrants → exactly 3 matches.
+        // A fast double tap on match 1 must count once and must not also
+        // decide match 2 (taps are ignored until a new pair has settled).
+        compose.mainClock.advanceTimeBy(VOTE_SETTLE_MS)
         compose.onNodeWithTag("vote_left_candidate").performClick()
         compose.onNodeWithTag("vote_left_candidate").performClick()
         compose.waitForIdle()
+        assertEquals("준결승 (4강)", viewModel.currentRoundName)
+        assertEquals("2 / 2", viewModel.currentMatchLabel)
+
         var safety = 0
         while (viewModel.currentScreen is UiScreen.WorldCupPlay && safety++ < 5) {
+            compose.mainClock.advanceTimeBy(VOTE_SETTLE_MS)
             compose.onNodeWithTag("vote_left_candidate").performClick()
             compose.waitForIdle()
         }
