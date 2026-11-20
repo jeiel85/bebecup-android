@@ -132,14 +132,18 @@ class JourneyFlowTest {
             compose.waitForIdle()
         }
         assertNull("bracket of 4 should be decided after 3 votes", viewModel.currentMatch)
-        // The champion is saved to Room before the winner screen opens, which
-        // can outlast one idle pass on a slow CI runner.
-        compose.waitUntil(timeoutMillis = 10_000) { viewModel.currentScreen is UiScreen.WorldCupWinner }
+        // The winner screen opens as soon as the last vote lands.
         assertTrue(viewModel.currentScreen is UiScreen.WorldCupWinner)
         compose.onNodeWithTag("world_cup_winner_view").assertIsDisplayed()
         capture("08_winner")
 
-        val photos = runBlocking { ids.map { AppDatabase.getDatabase(context).babyPhotoDao().getPhotoById(it)!! } }
+        // Stats are written in the background; wait for them instead of
+        // assuming one idle pass is enough on a slow CI runner.
+        fun photos() = runBlocking { ids.map { AppDatabase.getDatabase(context).babyPhotoDao().getPhotoById(it)!! } }
+        compose.waitUntil(timeoutMillis = 10_000) {
+            photos().let { p -> p.sumOf { it.matchesCount } == 3 && p.sumOf { it.winsCount } == 1 }
+        }
+        val photos = photos()
         assertEquals("one bracket of 4 = 3 match wins in total", 3, photos.sumOf { it.matchesCount })
         assertEquals(1, photos.sumOf { it.winsCount })
 
