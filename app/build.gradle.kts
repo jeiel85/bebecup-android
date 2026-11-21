@@ -156,6 +156,8 @@ dependencies {
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.play.services.base)
   implementation(libs.play.services.mlkit.face.detection)
+  // Asks the Google Play app whether a newer version is out (home banner). Play installs it; the app never does.
+  implementation(libs.play.app.update)
   // implementation(libs.play.services.location)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
