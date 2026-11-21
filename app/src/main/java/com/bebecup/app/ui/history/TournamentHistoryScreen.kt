@@ -27,11 +27,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bebecup.app.R
 import com.bebecup.app.data.TournamentRecord
+import com.bebecup.app.domain.monthly.MonthlyCup
 import com.bebecup.app.ui.components.BabyPhotoIllustration
 import com.bebecup.app.ui.components.EmptyState
 import com.bebecup.app.ui.components.ScreenHeader
 import com.bebecup.app.ui.viewmodel.BabyCupViewModel
-import com.bebecup.app.ui.viewmodel.UiScreen
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -56,7 +56,7 @@ fun TournamentHistoryListView(viewModel: BabyCupViewModel, tournaments: List<Tou
                     title = "아직 우승 사진이 없어요",
                     body = "보관함 사진으로 첫 월드컵을 열어 보세요!"
                 ) {
-                    Button(onClick = { viewModel.navigateTo(UiScreen.WorldCupSetup) }) { Text("월드컵 열기") }
+                    Button(onClick = { viewModel.openWorldCup() }) { Text("월드컵 열기") }
                 }
             }
             return@Column
@@ -81,7 +81,12 @@ fun TournamentHistoryListView(viewModel: BabyCupViewModel, tournaments: List<Tou
                     ) {
                         BabyPhotoIllustration(item.winnerUriString, Modifier.size(72.dp))
                         Column(Modifier.padding(start = 14.dp)) {
-                            Text("👑 ${item.totalParticipants}강 우승", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                            Text(
+                                item.monthKey?.let { "👑 ${MonthlyCup.label(it, withYear = true)}의 사진 · ${item.totalParticipants}강" }
+                                    ?: "👑 ${item.totalParticipants}강 우승",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
                             Text(
                                 date,
                                 fontSize = 12.sp,

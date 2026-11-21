@@ -11,13 +11,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -30,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bebecup.app.R
 import com.bebecup.app.data.BabyPhoto
+import com.bebecup.app.domain.monthly.MonthlyCup
 import com.bebecup.app.domain.tournament.TournamentEngine
 import com.bebecup.app.ui.components.EmptyState
 import com.bebecup.app.ui.components.Illustration
@@ -37,10 +43,18 @@ import com.bebecup.app.ui.components.ScreenHeader
 import com.bebecup.app.ui.viewmodel.BabyCupViewModel
 import com.bebecup.app.ui.viewmodel.UiScreen
 
-/** Pick a bracket size; entrants are the most recently saved photos in the 보관함. */
+/**
+ * Pick which photos compete and the bracket size. Entrants are the most
+ * recently saved photos in the 보관함, or — for a 이달의 월드컵 — the saved
+ * photos taken in one month, whose winner is kept as that month's photo.
+ */
 @Composable
 fun WorldCupSetupView(viewModel: BabyCupViewModel, bestPhotos: List<BabyPhoto>) {
-    val sizes = TournamentEngine.availableSizes(bestPhotos.size)
+    val months = remember(bestPhotos) { MonthlyCup.months(bestPhotos.map { it.takenDate }) }
+    // A month that no longer has enough photos (e.g. from an old reminder) falls back to "최근".
+    val month = viewModel.worldCupMonth?.takeIf { key -> months.any { it.key == key } }
+    val pool = remember(bestPhotos, month) { viewModel.worldCupPool(bestPhotos, month) }
+    val sizes = TournamentEngine.availableSizes(pool.size)
     var selected by rememberSaveable(sizes) { mutableIntStateOf(sizes.lastOrNull() ?: 0) }
 
     Column(
@@ -67,48 +81,58 @@ fun WorldCupSetupView(viewModel: BabyCupViewModel, bestPhotos: List<BabyPhoto>) 
             Modifier
                 .weight(1f)
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Illustration(R.drawable.illus_worldcup, size = 220.dp)
+            Illustration(R.drawable.illus_worldcup, size = 200.dp)
+            val label = month?.let { viewModel.monthLabel(it) }
             Text(
-                "보관함의 최근 사진 ${selected}장이 1:1로 겨뤄요.\n가족과 함께 골라 최고의 한 장을 뽑아 보세요!",
+                if (label == null) "보관함의 최근 사진 ${selected}장이 1:1로 겨뤄요.\n가족과 함께 골라 최고의 한 장을 뽑아 보세요!"
+                else "${label}에 찍은 사진 ${selected}장이 1:1로 겨뤄요.\n우승 사진은 ${label}의 사진으로 우승 전당에 남아요!",
                 fontSize = 14.sp,
                 lineHeight = 21.sp,
                 textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                modifier = Modifier.testTag("world_cup_setup_description")
             )
-            Spacer(Modifier.height(4.dp))
+            if (months.isNotEmpty()) {
+                Spacer(Modifier.height(2.dp))
+                Text("어떤 사진으로 할까요?", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    item {
+                        Choice(
+                            text = "최근 보관",
+                            selected = month == null,
+                            testTag = "cup_month_recent"
+                        ) { viewModel.selectWorldCupMonth(null) }
+                    }
+                    items(months, key = { it.key }) { m ->
+                        Choice(
+                            text = "${viewModel.monthLabel(m.key)} · ${m.photoCount}장",
+                            selected = month == m.key,
+                            testTag = "cup_month_${m.key}"
+                        ) { viewModel.selectWorldCupMonth(m.key) }
+                    }
+                }
+            }
+            Spacer(Modifier.height(2.dp))
             Text("몇 강으로 할까요?", fontSize = 14.sp, fontWeight = FontWeight.Bold)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 sizes.forEach { size ->
-                    val isSelected = size == selected
-                    Box(
-                        Modifier
-                            .weight(1f)
-                            .background(
-                                if (isSelected) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                                RoundedCornerShape(16.dp)
-                            )
-                            .clickable { selected = size }
-                            .padding(vertical = 14.dp)
-                            .testTag("bracket_size_$size"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            "${size}강",
-                            fontWeight = FontWeight.ExtraBold,
-                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+                    Choice(
+                        text = "${size}강",
+                        selected = size == selected,
+                        testTag = "bracket_size_$size",
+                        modifier = Modifier.weight(1f)
+                    ) { selected = size }
                 }
             }
         }
 
         Button(
-            onClick = { viewModel.startWorldCup(selected) },
+            onClick = { viewModel.startWorldCup(selected, month) },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(20.dp)
@@ -116,5 +140,33 @@ fun WorldCupSetupView(viewModel: BabyCupViewModel, bestPhotos: List<BabyPhoto>) 
                 .testTag("start_worldcup_button"),
             shape = RoundedCornerShape(18.dp)
         ) { Text("월드컵 시작!", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold) }
+    }
+}
+
+@Composable
+private fun Choice(
+    text: String,
+    selected: Boolean,
+    testTag: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier
+            .background(
+                if (selected) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                RoundedCornerShape(16.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+            .testTag(testTag),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text,
+            fontWeight = FontWeight.ExtraBold,
+            color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface
+        )
     }
 }

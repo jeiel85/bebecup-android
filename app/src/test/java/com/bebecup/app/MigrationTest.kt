@@ -6,10 +6,12 @@ import androidx.test.core.app.ApplicationProvider
 import com.bebecup.app.data.ALL_MIGRATIONS
 import com.bebecup.app.data.AppDatabase
 import com.bebecup.app.data.ai.PhotoAnalysisEntity
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -18,10 +20,10 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Validates the real v2 → v4 upgrade path preserves user data and ends with a
+ * Validates the real v2 → v5 upgrade path preserves user data and ends with a
  * schema Room accepts. We build a genuine v2 database by hand (the original
  * tournament-app schema), then open it through Room with [ALL_MIGRATIONS];
- * Room runs the migrations and validates the result against the compiled v4
+ * Room runs the migrations and validates the result against the compiled v5
  * schema, so any SQL mismatch fails this test.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -64,12 +66,17 @@ class MigrationTest {
                 "winsCount,matchesCount,isInPrintCart,printQuantity,printSize) " +
                 "VALUES ('content://legacy/1','우리 아기','첫 미소','2026-05-01',1,123456,2,5,0,1,'4x6')"
         )
+        db.execSQL(
+            "INSERT INTO tournament_records " +
+                "(winnerPhotoId,winnerTitle,winnerUriString,timestamp,totalParticipants,tournamentTitle) " +
+                "VALUES (1,'우리 아기','content://legacy/1',123456,8,'베스트 아기사진 이상형 월드컵')"
+        )
         db.version = 2
         db.close()
     }
 
     @Test
-    fun `v2 to v4 migration preserves baby photos and enables AI tables`() = runBlocking {
+    fun `v2 to v5 migration preserves photos and cups and adds the new columns`() = runBlocking {
         createV2Database()
 
         val room = Room.databaseBuilder(context, AppDatabase::class.java, dbName)
@@ -97,6 +104,13 @@ class MigrationTest {
         )
         val analyzed = room.photoAnalysisDao().getAnalyzedPhotoIds(PhotoAnalysisEntity.CURRENT_ANALYSIS_VERSION)
         assertEquals(listOf(1), analyzed)
+
+        // The old cup survived and is not a 이달의 월드컵 (monthKey added in v5).
+        val cups = room.babyPhotoDao().getAllTournaments().first()
+        assertEquals(1, cups.size)
+        assertEquals(8, cups.single().totalParticipants)
+        assertNull(cups.single().monthKey)
+        assertEquals(emptyList<String>(), room.babyPhotoDao().getMonthlyCupKeys())
 
         room.close()
     }

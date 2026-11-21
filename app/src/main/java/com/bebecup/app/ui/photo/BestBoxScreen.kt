@@ -102,7 +102,7 @@ fun BestBoxScreen(
                 Text("사진첩에서 담기", fontSize = 13.sp)
             }
             Button(
-                onClick = { viewModel.navigateTo(UiScreen.WorldCupSetup) },
+                onClick = { viewModel.openWorldCup() },
                 enabled = bestPhotos.size >= 2,
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(14.dp)

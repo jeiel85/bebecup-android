@@ -91,13 +91,23 @@ fun DashboardView(
             )
         }
         item { NudgeHeroCard(viewModel) }
+        viewModel.pendingMonthlyCup(bestPhotos, tournaments)?.let { due ->
+            item(key = "monthly_cup") {
+                MonthlyCupCard(
+                    label = viewModel.monthLabel(due.key),
+                    photoCount = due.photoCount,
+                    onOpen = { viewModel.openWorldCup(due.key) },
+                    onSkip = { viewModel.skipMonthlyCup(due.key) }
+                )
+            }
+        }
         item {
             JourneyRow(
                 bestCount = bestPhotos.size,
                 cupCount = tournaments.size,
                 printCount = printCartPhotos.size,
                 onBest = { viewModel.navigateTo(UiScreen.BestBox) },
-                onCup = { viewModel.navigateTo(UiScreen.WorldCupSetup) },
+                onCup = { viewModel.openWorldCup() },
                 onPrint = { viewModel.navigateTo(UiScreen.PrintCart) }
             )
         }
@@ -119,7 +129,7 @@ fun DashboardView(
                 actionLabel = "월드컵 열기",
                 actionEnabled = bestPhotos.size >= 2,
                 testTag = "goto_worldcup_button",
-                onAction = { viewModel.navigateTo(UiScreen.WorldCupSetup) }
+                onAction = { viewModel.openWorldCup() }
             )
         }
         item {
@@ -154,6 +164,38 @@ fun DashboardView(
             },
             onDismiss = { editingProfile = false }
         )
+    }
+}
+
+/** 이달의 월드컵: last month's saved photos are waiting for their cup. */
+@Composable
+private fun MonthlyCupCard(label: String, photoCount: Int, onOpen: () -> Unit, onSkip: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("monthly_cup_card"),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("🏆 ${label}의 월드컵", fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
+                Text(
+                    "${label}에 찍어 보관한 사진 ${photoCount}장 중 가족이 함께 ${label}의 사진을 뽑아요. 우승 사진은 우승 전당에 남아요.",
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f)
+                )
+                Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                    TextButton(onClick = onSkip, modifier = Modifier.testTag("monthly_cup_skip")) { Text("건너뛰기") }
+                    Button(
+                        onClick = onOpen,
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.testTag("monthly_cup_open")
+                    ) { Text("${label} 월드컵 열기", fontWeight = FontWeight.Bold) }
+                }
+            }
+        }
     }
 }
 

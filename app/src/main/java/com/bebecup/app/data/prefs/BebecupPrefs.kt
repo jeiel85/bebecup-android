@@ -33,7 +33,7 @@ class BebecupPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_ONBOARDING_SEEN, false)
         set(value) = prefs.edit().putBoolean(KEY_ONBOARDING_SEEN, value).apply()
 
-    /** Parent opted in to "사진이 쌓이면 알려주기". Off until they say yes. */
+    /** Parent opted in to reminders (사진이 쌓이면 + 이달의 월드컵). Off until they say yes. */
     var nudgeEnabled: Boolean
         get() = prefs.getBoolean(KEY_NUDGE_ENABLED, false)
         set(value) = prefs.edit().putBoolean(KEY_NUDGE_ENABLED, value).apply()
@@ -67,6 +67,16 @@ class BebecupPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_PICKED_DATES_FIXED, false)
         set(value) = prefs.edit().putBoolean(KEY_PICKED_DATES_FIXED, value).apply()
 
+    /** "yyyy-MM" of the 이달의 월드컵 the parent skipped on the home card; "" = none. */
+    var monthlyCupSkippedMonth: String
+        get() = prefs.getString(KEY_MONTHLY_SKIPPED, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_MONTHLY_SKIPPED, value).apply()
+
+    /** "yyyy-MM" of the last 이달의 월드컵 reminder posted, so each month is announced once. */
+    var monthlyCupNotifiedMonth: String
+        get() = prefs.getString(KEY_MONTHLY_NOTIFIED, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_MONTHLY_NOTIFIED, value).apply()
+
     companion object {
         const val SCAN_SINCE_LAST_REVIEW = 0
 
@@ -84,5 +94,7 @@ class BebecupPrefs(context: Context) {
         private const val KEY_BABY_BIRTH_DATE = "baby_birth_date"
         private const val KEY_BABY_PROMPT_DISMISSED = "baby_profile_prompt_dismissed"
         private const val KEY_PICKED_DATES_FIXED = "picked_photo_dates_fixed"
+        private const val KEY_MONTHLY_SKIPPED = "monthly_cup_skipped_month"
+        private const val KEY_MONTHLY_NOTIFIED = "monthly_cup_notified_month"
     }
 }

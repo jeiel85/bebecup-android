@@ -19,7 +19,7 @@ import com.bebecup.app.data.ai.PhotoClusterEntity
         PhotoClusterEntity::class,
         AiCurationSessionEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -40,7 +40,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "baby_photo_worldcup_database"
                 )
                     // Commercial release: explicit migrations preserve user data
-                    // across updates (v2 tournament app → v4 AI curation). See
+                    // across updates (v2 tournament app → v5). See
                     // [ALL_MIGRATIONS] / Migrations.kt.
                     .addMigrations(*ALL_MIGRATIONS)
                     // Only wipe on an (unsupported) downgrade, never on upgrade.

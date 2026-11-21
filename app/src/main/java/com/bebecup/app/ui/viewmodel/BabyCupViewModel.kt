@@ -26,6 +26,7 @@ import com.bebecup.app.data.media.PhotoAccess
 import com.bebecup.app.data.media.PhotoMetadataReader
 import com.bebecup.app.data.prefs.BebecupPrefs
 import com.bebecup.app.domain.model.ShortlistItem
+import com.bebecup.app.domain.monthly.MonthlyCup
 import com.bebecup.app.domain.nudge.NudgePolicy
 import com.bebecup.app.domain.profile.BabyAge
 import com.bebecup.app.domain.profile.CalendarDate
@@ -67,7 +68,8 @@ sealed interface UiScreen {
     // ② 월드컵
     object WorldCupSetup : UiScreen
     object WorldCupPlay : UiScreen
-    data class WorldCupWinner(val winner: BabyPhoto, val bracketSize: Int) : UiScreen
+    /** [monthKey] is set for a 이달의 월드컵 ("yyyy-MM"). */
+    data class WorldCupWinner(val winner: BabyPhoto, val bracketSize: Int, val monthKey: String? = null) : UiScreen
     object TournamentHistoryList : UiScreen
 
     // ③ 인화
@@ -182,6 +184,14 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
     /** AI #1 among the photos in this tournament; null for hand-picked brackets. */
     private var aiTopPickId: Int? = null
 
+    /** Month chosen on the setup screen ("yyyy-MM"); null = the most recently saved photos. */
+    var worldCupMonth by mutableStateOf<String?>(null)
+        private set
+    /** Month of the cup being played; recorded with its winner. */
+    private var playingMonth: String? = null
+    var monthlyCupSkippedMonth by mutableStateOf(prefs.monthlyCupSkippedMonth)
+        private set
+
     init {
         val database = AppDatabase.getDatabase(application)
         repository = BabyPhotoRepository(database.babyPhotoDao())
@@ -245,13 +255,27 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
         return true
     }
 
-    /** Opened from the "사진이 쌓였어요" notification: go straight to sorting. */
+    /**
+     * Opened from a reminder: "사진이 쌓였어요" goes straight to sorting,
+     * "N월의 월드컵" to that month's cup setup.
+     */
     fun handleLaunchIntent(intent: Intent?) {
-        if (intent?.getBooleanExtra(NudgeNotifier.EXTRA_OPEN_CURATION, false) != true) return
+        if (intent == null) return
+        val month = intent.getStringExtra(NudgeNotifier.EXTRA_OPEN_MONTHLY_CUP)
+        val curation = intent.getBooleanExtra(NudgeNotifier.EXTRA_OPEN_CURATION, false)
+        intent.removeExtra(NudgeNotifier.EXTRA_OPEN_MONTHLY_CUP)
         intent.removeExtra(NudgeNotifier.EXTRA_OPEN_CURATION)
         if (!prefs.onboardingSeen) return
-        navigateHome()
-        navigateTo(UiScreen.AiScanSetup)
+        when {
+            month != null -> {
+                navigateHome()
+                openWorldCup(month)
+            }
+            curation -> {
+                navigateHome()
+                navigateTo(UiScreen.AiScanSetup)
+            }
+        }
     }
 
     // ================= Onboarding & nudge =================
@@ -502,6 +526,7 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
                 val size = TournamentEngine.availableSizes(approved.size).last()
                 val entrants = approved.take(size)
                 aiTopPickId = entrants.first().photo.id
+                playingMonth = null
                 launchTournament(entrants.map { it.photo }, asRoot = true)
             } else {
                 navigateAsRoot(UiScreen.BestBox)
@@ -581,11 +606,48 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
 
     // ================= ② 월드컵 =================
 
-    /** Bracket from the most recently saved photos in the 보관함. */
-    fun startWorldCup(size: Int) {
-        val pool = bestPhotos.value.sortedByDescending { it.bestSelectedTimestamp }
+    /** Open the cup setup, on [month]'s photos ("yyyy-MM") or on the latest saved ones. */
+    fun openWorldCup(month: String? = null) {
+        worldCupMonth = month
+        navigateTo(UiScreen.WorldCupSetup)
+    }
+
+    fun selectWorldCupMonth(month: String?) {
+        worldCupMonth = month
+    }
+
+    /** Last month's cup when it is due (home card); see [MonthlyCup.pending]. */
+    fun pendingMonthlyCup(best: List<BabyPhoto>, records: List<TournamentRecord>): MonthlyCup.Month? =
+        MonthlyCup.pending(
+            today = MonthlyCup.today(),
+            takenDates = best.map { it.takenDate },
+            decided = records.mapNotNull { it.monthKey }.toSet(),
+            skippedKey = monthlyCupSkippedMonth
+        )
+
+    /** "10월", with the year when it isn't this year. */
+    fun monthLabel(monthKey: String): String = MonthlyCup.label(monthKey, MonthlyCup.today().year)
+
+    /** The parent passed on [month]'s cup; the home card stays away until next month. */
+    fun skipMonthlyCup(month: String) {
+        prefs.monthlyCupSkippedMonth = month
+        monthlyCupSkippedMonth = month
+    }
+
+    /**
+     * Photos a cup would draw from, most recently saved first: those taken in
+     * [month], or all saved photos when [month] is null.
+     */
+    fun worldCupPool(best: List<BabyPhoto>, month: String?): List<BabyPhoto> =
+        best.filter { month == null || MonthlyCup.monthKeyOf(it.takenDate) == month }
+            .sortedByDescending { it.bestSelectedTimestamp }
+
+    /** Bracket of [size] from [month]'s saved photos, or the most recently saved ones. */
+    fun startWorldCup(size: Int, month: String? = worldCupMonth) {
+        val pool = worldCupPool(bestPhotos.value, month)
         if (pool.size < 2) return
         aiTopPickId = null
+        playingMonth = month
         launchTournament(pool.take(size.coerceAtMost(pool.size)).shuffled(), asRoot = false)
     }
 
@@ -613,9 +675,10 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
 
     private fun declareChampion(winner: BabyPhoto, bracketSize: Int) {
         engine = null
+        val month = playingMonth
         // Show the winner right away; recording it must not hold the screen
         // hostage to disk I/O (a slow device would sit on a blank play screen).
-        navigateAsRoot(UiScreen.WorldCupWinner(winner.copy(winsCount = winner.winsCount + 1), bracketSize))
+        navigateAsRoot(UiScreen.WorldCupWinner(winner.copy(winsCount = winner.winsCount + 1), bracketSize, month))
         viewModelScope.launch {
             try {
                 repository.incrementChampionships(winner.id)
@@ -625,7 +688,9 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
                         winnerTitle = winner.title,
                         winnerUriString = winner.uriString,
                         totalParticipants = bracketSize,
-                        tournamentTitle = "베스트 아기사진 이상형 월드컵"
+                        tournamentTitle = month?.let { "${MonthlyCup.label(it, withYear = true)}의 월드컵" }
+                            ?: "베스트 아기사진 이상형 월드컵",
+                        monthKey = month
                     )
                 )
             } catch (e: Exception) {

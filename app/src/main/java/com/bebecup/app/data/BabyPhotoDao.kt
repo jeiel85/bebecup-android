@@ -72,4 +72,12 @@ interface BabyPhotoDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTournament(record: TournamentRecord): Long
+
+    // 이달의 월드컵 (read by the reminder worker, which has no Flow collectors)
+
+    @Query("SELECT takenDate FROM baby_photos WHERE isSelectedAsBest = 1")
+    suspend fun getBestTakenDates(): List<String>
+
+    @Query("SELECT DISTINCT monthKey FROM tournament_records WHERE monthKey IS NOT NULL")
+    suspend fun getMonthlyCupKeys(): List<String>
 }

@@ -3,5 +3,9 @@
     <string name="nudge_channel_name">정리 안 한 사진 알림</string>
     <string name="nudge_channel_desc">확인하지 않은 아기 사진이 쌓이면 가끔 알려드려요.</string>
     <string name="nudge_title">확인 안 한 아기 사진이 %1$d장 쌓였어요</string>
+    <string name="monthly_cup_channel_name">이달의 월드컵 알림</string>
+    <string name="monthly_cup_channel_desc">매달 초, 지난달 사진으로 월드컵을 열 수 있을 때 한 번 알려드려요.</string>
+    <string name="monthly_cup_title">%1$s의 월드컵을 열 때예요 🏆</string>
+    <string name="monthly_cup_text">%1$s에 찍어 보관한 사진 %2$d장 중 가족이 함께 %1$s의 사진을 뽑아 보세요.</string>
     <string name="nudge_text">5분이면 베스트 사진을 골라 둘 수 있어요. 베베컵이 기기 안에서 먼저 추려 드릴게요.</string>
 </resources>
