@@ -5,6 +5,7 @@
 - **문제**: Play 비공개 테스트 테스터가 Play 자동 업데이트를 꺼 두면 새 버전이 나와도 모름.
 - **변경**: Play In-App Updates API(`com.google.android.play:app-update`)로 Play 앱에 새 버전이 있는지 묻고(`update/StoreUpdates`), 있으면 홈 맨 위에 배너를 띄워 Play 스토어 페이지를 연다(Claude Usage 앱과 같은 방식). 홈이 앞에 올 때 최대 6시간에 한 번 묻는다. 디버그 빌드는 `--ei debug_fake_update <versionCode>`로 배너를 띄워 볼 수 있다.
 - **검증**: PR에 기록.
+- **릴리스**: v0.7.2(versionCode 8)로 GitHub 릴리스와 Play 비공개 테스트 - Alpha에 함께 올림. 실제 Play 설치본에서 배너 → Play 스토어 흐름은 다음 Alpha 버전이 나올 때 처음 확인할 수 있음.
 
 ## 2026-11-21 (v0.7.1 앱 용량 다이어트)
 
