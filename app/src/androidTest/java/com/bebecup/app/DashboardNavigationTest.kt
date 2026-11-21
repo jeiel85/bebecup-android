@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
 import org.junit.Test
@@ -60,6 +61,7 @@ class DashboardNavigationTest {
             composeRule.onAllNodesWithTag("settings_view").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithTag("settings_view").assertIsDisplayed()
-        composeRule.onNodeWithTag("settings_delete_data_btn").assertIsDisplayed()
+        // Below the 아기 정보 card on small screens: scroll to it, then check it shows.
+        composeRule.onNodeWithTag("settings_delete_data_btn").performScrollTo().assertIsDisplayed()
     }
 }
