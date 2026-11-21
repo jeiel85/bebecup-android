@@ -14,13 +14,15 @@ import com.bebecup.app.nudge.NudgeNotifier
 import com.bebecup.app.ui.viewmodel.BabyCupViewModel
 
 /**
- * Turning on "사진이 쌓이면 알려드려요" needs two grants: reading the gallery
- * (to count new photos) and posting notifications (Android 13+). [request]
- * asks for both, then enables the reminder only if both were granted.
+ * Turning on reminders asks for two grants: reading the gallery (to count new
+ * photos) and posting notifications (Android 13+). Notifications alone are
+ * enough to turn reminders on: the 이달의 월드컵 reminder reads only the app's
+ * own records, and the worker skips the unsorted-photo count by itself while
+ * the app lacks full gallery access.
  */
 class NudgeOptIn(
     val request: () -> Unit,
-    /** Set when the parent declined; screens show a gentle explanation. */
+    /** Set when notifications were declined; screens show a gentle explanation. */
     val declined: MutableState<Boolean>
 )
 
@@ -31,9 +33,10 @@ fun rememberNudgeOptIn(viewModel: BabyCupViewModel, onResult: (Boolean) -> Unit 
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ ->
-        // Reminders count *new* photos, which "선택한 사진만 허용" (Android 14+)
-        // never exposes — so they need full gallery access, unlike a manual scan.
-        val ok = PhotoAccess.hasFullAccess(context) && NudgeNotifier.canPost(context)
+        // "선택한 사진만 허용" (Android 14+) never exposes newly taken photos, so
+        // without full access only the monthly reminder can fire; that is still
+        // worth turning on. Only a refused notification permission stops it.
+        val ok = NudgeNotifier.canPost(context)
         viewModel.updateNudgeEnabled(ok)
         declined.value = !ok
         viewModel.refreshHomeStatus()

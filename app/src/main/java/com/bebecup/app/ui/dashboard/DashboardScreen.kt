@@ -319,7 +319,7 @@ private fun NudgeHeroCard(viewModel: BabyCupViewModel) {
             if (!viewModel.nudgeEnabled) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        if (optIn.declined.value) "알림 권한과 '모든 사진' 접근이 있어야 알려드릴 수 있어요."
+                        if (optIn.declined.value) "알림 권한이 있어야 알려드릴 수 있어요."
                         else "사진이 쌓이면 알려드릴까요?",
                         fontSize = 12.sp,
                         modifier = Modifier.weight(1f),
