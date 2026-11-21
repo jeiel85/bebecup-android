@@ -35,7 +35,7 @@
 | 📷 **사진 후보 관리** | 가족이 직접 고른 아기 사진만 후보로 등록 |
 | 🏆 **이상형 월드컵** | 토너먼트로 최고의 한 장을 뽑는 직관적 UI |
 | 🖼️ **인화 후보 정리** | 우승 사진과 인화 후보를 따로 모아두기 |
-| 🔒 **온디바이스 우선** | 외부 서버 업로드·분석·광고·추적 SDK 없음 |
+| 🔒 **온디바이스 우선** | 사진은 기기 밖으로 나가지 않음 · 광고·분석·추적 SDK 없음 |
 
 ## 스크린샷
 
@@ -66,12 +66,14 @@
 
 [Android Studio](https://developer.android.com/studio)에서 이 디렉터리를 열어 import한 뒤 에뮬레이터나 실제 기기로 실행합니다.
 
+배포 채널마다 빌드가 다릅니다(`play`: Google Play AAB, `github`: GitHub Releases APK). 서명 키가 달라 서로 덮어 설치할 수 없습니다.
+
 ```bash
 # Debug
-./gradlew :app:assembleDebug
+./gradlew :app:assemblePlayDebug      # 또는 :app:assembleGithubDebug
 
-# Unsigned release bundle (검증용)
-./gradlew :app:bundleRelease
+# Unsigned release (검증용)
+./gradlew :app:bundlePlayRelease :app:assembleGithubRelease
 
 # Play 업로드용 AAB를 dist/에 준비 (태그 vX.Y.Z 릴리스 워크플로가 서명한 산출물)
 scripts/play-bundle.sh X.Y.Z
@@ -79,13 +81,13 @@ scripts/play-bundle.sh X.Y.Z
 
 ### 릴리즈 서명
 
-`release-signing.properties`에 다음 값을 설정합니다. 자세한 절차는 [docs/RELEASE.md](docs/RELEASE.md)를 참고하세요.
+채널마다 키가 다릅니다. Play 빌드는 `release-signing.properties`의 `BEBECUP_RELEASE_*`(Play 업로드 키), GitHub APK는 `.keystore/github-release-signing.properties`의 `BEBECUP_GITHUB_*`로 서명합니다. 자세한 절차는 [docs/RELEASE.md](docs/RELEASE.md)를 참고하세요.
 
 ```properties
-BEBECUP_RELEASE_STORE_FILE=.keystore/bebecup-release.p12
-BEBECUP_RELEASE_STORE_PASSWORD=...
-BEBECUP_RELEASE_KEY_ALIAS=bebecup-release
-BEBECUP_RELEASE_KEY_PASSWORD=...
+BEBECUP_GITHUB_STORE_FILE=.keystore/bebecup-github-release.p12
+BEBECUP_GITHUB_STORE_PASSWORD=...
+BEBECUP_GITHUB_KEY_ALIAS=bebecup-github
+BEBECUP_GITHUB_KEY_PASSWORD=...
 ```
 
 > `.keystore/`와 `release-signing.properties`는 `.gitignore`로 커밋이 차단됩니다.
@@ -110,7 +112,7 @@ BEBECUP_RELEASE_KEY_PASSWORD=...
 
 ## 개인정보 보호
 
-베베컵은 사진 파일, 사진 URI, 사용 기록, 기기 식별자, 위치 정보, 연락처, 계정 정보를 **외부로 전송하지 않습니다**. 자세한 사항은 [개인정보처리방침](https://jeiel85.github.io/bebecup-android/privacy/)에 정리되어 있습니다.
+베베컵은 사진 파일, 사진 URI, 얼굴 인식 결과, 아기 정보, 위치 정보, 연락처, 계정 정보를 **외부로 전송하지 않습니다**. 얼굴 인식에 쓰는 Google ML Kit은 기능 성능·사용 지표(기기 모델, 앱 버전, 처리 시간 등)를 Google에 보낼 수 있습니다. 자세한 사항은 [개인정보처리방침](https://jeiel85.github.io/bebecup-android/privacy/)에 정리되어 있습니다.
 
 ## 문의
 

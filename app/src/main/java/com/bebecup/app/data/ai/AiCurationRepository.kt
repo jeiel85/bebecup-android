@@ -39,6 +39,9 @@ interface AiCurationRepository {
      * like "자는 아기 허용", changes. Session history is kept.
      */
     suspend fun invalidateAnalyses()
+
+    /** Drop analyses scored by an older pipeline than [PhotoAnalysisEntity.CURRENT_ANALYSIS_VERSION]. */
+    suspend fun deleteStaleAnalyses(): Int
 }
 
 /**
@@ -96,6 +99,9 @@ class RoomAiCurationRepository(
         analysisDao.deleteAll()
         clusterDao.deleteAll()
     }
+
+    override suspend fun deleteStaleAnalyses(): Int =
+        analysisDao.deleteOtherVersions(PhotoAnalysisEntity.CURRENT_ANALYSIS_VERSION)
 
     override suspend fun deleteAllLocalAnalysisData() {
         analysisDao.deleteAll()

@@ -37,6 +37,20 @@ data class CalendarDate(val year: Int, val month: Int, val day: Int) : Comparabl
             return CalendarDate(year, month, day)
         }
 
+        /** The inverse of [epochDay] (Hinnant's civil_from_days). */
+        fun fromEpochDay(epochDay: Long): CalendarDate {
+            val z = epochDay + 719_468L
+            val era = Math.floorDiv(z, 146_097L)
+            val dayOfEra = z - era * 146_097L
+            val yearOfEra = (dayOfEra - dayOfEra / 1_460 + dayOfEra / 36_524 - dayOfEra / 146_096) / 365
+            val dayOfYear = dayOfEra - (365 * yearOfEra + yearOfEra / 4 - yearOfEra / 100)
+            val shiftedMonth = (5 * dayOfYear + 2) / 153 // March = 0
+            val day = (dayOfYear - (153 * shiftedMonth + 2) / 5 + 1).toInt()
+            val month = (if (shiftedMonth < 10) shiftedMonth + 3 else shiftedMonth - 9).toInt()
+            val year = (yearOfEra + era * 400 + if (month <= 2) 1 else 0).toInt()
+            return CalendarDate(year, month, day)
+        }
+
         fun daysInMonth(year: Int, month: Int): Int = when (month) {
             2 -> if (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) 29 else 28
             4, 6, 9, 11 -> 30

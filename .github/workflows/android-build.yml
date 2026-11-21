@@ -34,8 +34,9 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      # Both channels (play/github flavors): each has its own face-model and update code.
       - name: Run unit + integration (Robolectric) tests
-        run: ./gradlew testDebugUnitTest
+        run: ./gradlew testPlayDebugUnitTest testGithubDebugUnitTest
 
       - name: Run release script tests (Play upload)
         run: python3 -m unittest discover -s scripts -p "test_*.py" -v
@@ -46,8 +47,8 @@ jobs:
         with:
           name: unit-test-report
           path: |
-            app/build/reports/tests/testDebugUnitTest
-            app/build/test-results/testDebugUnitTest
+            app/build/reports/tests
+            app/build/test-results
           if-no-files-found: ignore
 
   # On-device integration tests on an Android emulator.
@@ -89,7 +90,7 @@ jobs:
           arch: x86_64
           target: google_apis
           disable-animations: true
-          script: ./gradlew connectedDebugAndroidTest
+          script: ./gradlew connectedPlayDebugAndroidTest
 
       - name: Upload instrumented test report
         if: always()
@@ -124,31 +125,37 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build with Gradle
-        run: ./gradlew assembleDebug
+        run: ./gradlew assemblePlayDebug assembleGithubDebug
 
-      - name: Verify debug APK exists
+      - name: Verify debug APKs exist
         run: |
-          test -f app/build/outputs/apk/debug/app-debug.apk
-          ls -lh app/build/outputs/apk/debug/app-debug.apk
+          for channel in play github; do
+            APK="app/build/outputs/apk/$channel/debug/app-$channel-debug.apk"
+            test -s "$APK"
+            ls -lh "$APK"
+          done
 
       - name: Run release lint (hard gate)
-        run: ./gradlew :app:lintRelease
+        run: ./gradlew :app:lintPlayRelease :app:lintGithubRelease
 
       - name: Upload lint report on failure
         if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: lint-report-release
-          path: app/build/reports/lint-results-release.html
+          path: app/build/reports/lint-results-*Release.html
           if-no-files-found: ignore
 
-      - name: Build release APK with R8 (hard gate, unsigned ok)
-        run: ./gradlew :app:assembleRelease
+      # What each channel ships: the Play AAB and the GitHub APK (unsigned here).
+      - name: Build release artifacts with R8 (hard gate, unsigned ok)
+        run: ./gradlew :app:bundlePlayRelease :app:assembleGithubRelease
 
-      - name: Verify release APK exists and is non-empty
+      - name: Verify release artifacts exist and are non-empty
         run: |
-          APK="$(python3 -c 'import glob, os, sys; preferred = ["app/build/outputs/apk/release/app-release.apk", "app/build/outputs/apk/release/app-release-unsigned.apk"]; paths = [p for p in preferred if os.path.isfile(p)] or sorted(glob.glob("app/build/outputs/apk/release/*.apk")); print(paths[0] if paths else ""); sys.exit(0 if paths else 1)')"
-          test -f "$APK"
+          AAB="app/build/outputs/bundle/playRelease/app-play-release.aab"
+          test -s "$AAB"
+          ls -lh "$AAB"
+          APK="$(ls app/build/outputs/apk/github/release/*.apk | head -1)"
           test -s "$APK"
           ls -lh "$APK"
 
@@ -156,14 +163,14 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: bebecup-r8-mapping
-          path: app/build/outputs/mapping/release/mapping.txt
+          path: app/build/outputs/mapping/*Release/mapping.txt
           if-no-files-found: error
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v7
         with:
           name: bebecup-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/*/debug/*.apk
           if-no-files-found: error
 
   release:
@@ -190,77 +197,78 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Restore release keystore
+      # Two keys, one per channel (DECISIONS.md, "채널별 빌드"):
+      # BEBECUP_RELEASE_* = Google Play upload key, BEBECUP_GITHUB_* = GitHub APK key.
+      - name: Restore release keystores
         env:
           BEBECUP_RELEASE_KEYSTORE_BASE64: ${{ secrets.BEBECUP_RELEASE_KEYSTORE_BASE64 }}
+          BEBECUP_GITHUB_KEYSTORE_BASE64: ${{ secrets.BEBECUP_GITHUB_KEYSTORE_BASE64 }}
         run: |
           test -n "$BEBECUP_RELEASE_KEYSTORE_BASE64"
+          test -n "$BEBECUP_GITHUB_KEYSTORE_BASE64"
           mkdir -p release
           printf '%s' "$BEBECUP_RELEASE_KEYSTORE_BASE64" | base64 -d > release/bebecup-release.p12
+          printf '%s' "$BEBECUP_GITHUB_KEYSTORE_BASE64" | base64 -d > release/bebecup-github-release.p12
           test -s release/bebecup-release.p12
+          test -s release/bebecup-github-release.p12
 
       - name: Run tests
-        run: ./gradlew test
+        run: ./gradlew testPlayDebugUnitTest testGithubDebugUnitTest
 
-      - name: Build signed release APK and Play Console AAB
+      - name: Build signed GitHub APK and Play Console AAB
         env:
           BEBECUP_RELEASE_STORE_FILE: release/bebecup-release.p12
           BEBECUP_RELEASE_STORE_PASSWORD: ${{ secrets.BEBECUP_RELEASE_STORE_PASSWORD }}
           BEBECUP_RELEASE_KEY_ALIAS: ${{ secrets.BEBECUP_RELEASE_KEY_ALIAS }}
           BEBECUP_RELEASE_KEY_PASSWORD: ${{ secrets.BEBECUP_RELEASE_KEY_PASSWORD }}
+          BEBECUP_GITHUB_STORE_FILE: release/bebecup-github-release.p12
+          BEBECUP_GITHUB_STORE_PASSWORD: ${{ secrets.BEBECUP_GITHUB_STORE_PASSWORD }}
+          BEBECUP_GITHUB_KEY_ALIAS: ${{ secrets.BEBECUP_GITHUB_KEY_ALIAS }}
+          BEBECUP_GITHUB_KEY_PASSWORD: ${{ secrets.BEBECUP_GITHUB_KEY_PASSWORD }}
           ORG_GRADLE_PROJECT_bebecup.requireReleaseSigning: "true"
-        run: |
-          ./gradlew :app:assembleRelease
-          ./gradlew :app:bundleRelease
+        run: ./gradlew :app:assembleGithubRelease :app:bundlePlayRelease
 
-      - name: Verify release signing certificate
+      # Public certificate fingerprints, so a swapped secret cannot ship a
+      # wrongly signed build (docs/RELEASE.md).
+      - name: Verify release signing certificates
+        env:
+          GITHUB_APK_SHA256: 8734b582f9be30b6f11b33ac608f82b4e599adc870da7a0fbbc7c456f1807966
+          PLAY_UPLOAD_SHA256: "05:01:95:78:3E:88:0F:19:04:DF:91:4D:EA:5A:BE:20:1E:79:BE:84:47:25:C7:23:60:BD:45:A3:B0:C3:51:B7"
         run: |
-          APK="app/build/outputs/apk/release/app-release.apk"
-          if [ ! -f "$APK" ]; then
-            APK="$(python3 -c 'import glob, os, sys; paths = sorted(p for p in glob.glob("app/build/**/*.apk", recursive=True) if "release" in os.path.basename(p).lower() or "/release/" in p.replace("\\", "/").lower()); print(paths[0] if paths else ""); sys.exit(0 if paths else 1)')"
-          fi
-          test -f "$APK"
+          APK="app/build/outputs/apk/github/release/app-github-release.apk"
+          AAB="app/build/outputs/bundle/playRelease/app-play-release.aab"
+          test -s "$APK"
+          test -s "$AAB"
           APKSIGNER="$ANDROID_HOME/build-tools/$(ls -1 "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/apksigner"
           "$APKSIGNER" verify "$APK"
+          APK_SHA="$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
+          echo "GitHub APK signer: $APK_SHA"
+          test "$APK_SHA" = "$GITHUB_APK_SHA256"
+          AAB_SHA="$(keytool -printcert -jarfile "$AAB" | sed -n 's/^\s*SHA256: //p' | head -1)"
+          echo "Play AAB signer: $AAB_SHA"
+          test "$AAB_SHA" = "$PLAY_UPLOAD_SHA256"
 
-      - name: Prepare release asset
+      - name: Prepare release assets (GitHub APK + its R8 mapping)
         run: |
-          APK="app/build/outputs/apk/release/app-release.apk"
-          if [ ! -f "$APK" ]; then
-            APK="$(python3 -c 'import glob, os, sys; paths = sorted(p for p in glob.glob("app/build/**/*.apk", recursive=True) if "release" in os.path.basename(p).lower() or "/release/" in p.replace("\\", "/").lower()); print(paths[0] if paths else ""); sys.exit(0 if paths else 1)')"
-          fi
-          test -f "$APK"
-          cp "$APK" "bebecup-${GITHUB_REF_NAME}.apk"
-          test -s "bebecup-${GITHUB_REF_NAME}.apk"
-          ls -lh "bebecup-${GITHUB_REF_NAME}.apk"
-
-      - name: Verify Play Console AAB exists
-        run: |
-          AAB="app/build/outputs/bundle/release/app-release.aab"
-          test -f "$AAB"
-          test -s "$AAB"
-          ls -lh "$AAB"
-
-      - name: Prepare R8 mapping for release asset
-        run: |
-          MAPPING="app/build/outputs/mapping/release/mapping.txt"
-          test -f "$MAPPING"
+          cp app/build/outputs/apk/github/release/app-github-release.apk "bebecup-${GITHUB_REF_NAME}.apk"
+          MAPPING="app/build/outputs/mapping/githubRelease/mapping.txt"
           test -s "$MAPPING"
           cp "$MAPPING" "bebecup-${GITHUB_REF_NAME}.mapping.txt"
-          ls -lh "bebecup-${GITHUB_REF_NAME}.mapping.txt"
+          ls -lh "bebecup-${GITHUB_REF_NAME}.apk" "bebecup-${GITHUB_REF_NAME}.mapping.txt"
 
       - name: Upload Play Console AAB artifact
         uses: actions/upload-artifact@v7
         with:
           name: bebecup-release-aab
-          path: app/build/outputs/bundle/release/app-release.aab
+          path: app/build/outputs/bundle/playRelease/app-play-release.aab
           if-no-files-found: error
 
+      # The Play build's own mapping (the GitHub Release one is the GitHub APK's).
       - name: Upload R8 mapping artifact (release job)
         uses: actions/upload-artifact@v7
         with:
           name: bebecup-release-mapping
-          path: app/build/outputs/mapping/release/mapping.txt
+          path: app/build/outputs/mapping/playRelease/mapping.txt
           if-no-files-found: error
 
       - name: Prepare release notes
@@ -356,7 +364,7 @@ jobs:
           CODE="$(sed -n 's/^ *versionCode = \([0-9]*\).*/\1/p' app/build.gradle.kts | head -1)"
           test -n "$CODE"
           python3 scripts/play_upload.py \
-            --aab play/app-release.aab \
+            --aab play/app-play-release.aab \
             --mapping play/mapping.txt \
             --version-code "$CODE" \
             --notes-dir fastlane/metadata/android \

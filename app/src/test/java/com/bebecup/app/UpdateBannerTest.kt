@@ -22,11 +22,25 @@ class UpdateBannerTest {
   @Test
   fun `banner says a new version is out and tapping it opens the store`() {
     var opened = 0
-    compose.setContent { UpdateBannerContent(onClick = { opened++ }) }
+    var dismissed = 0
+    compose.setContent { UpdateBannerContent(onClick = { opened++ }, onDismiss = { dismissed++ }) }
 
     compose.onNodeWithText("새 버전이 나왔어요").assertIsDisplayed()
     compose.onNodeWithTag("update_banner").performClick()
 
     assertEquals(1, opened)
+    assertEquals(0, dismissed)
+  }
+
+  @Test
+  fun `the close button dismisses without opening the store`() {
+    var opened = 0
+    var dismissed = 0
+    compose.setContent { UpdateBannerContent(onClick = { opened++ }, onDismiss = { dismissed++ }) }
+
+    compose.onNodeWithTag("update_banner_dismiss").performClick()
+
+    assertEquals(0, opened)
+    assertEquals(1, dismissed)
   }
 }

@@ -63,7 +63,7 @@
 
 | 항목 | 값 |
 | --- | --- |
-| 업로드 파일 | `app/build/outputs/bundle/release/app-release.aab` |
+| 업로드 파일 | `app/build/outputs/bundle/playRelease/app-play-release.aab` (v0.9.0 다음 버전부터 `play` flavor, 이전에는 `bundle/release/app-release.aab`) |
 | 현재 버전 | `versionCode = 2`, `versionName = "0.2.0"` |
 | 릴리즈 노트 | `fastlane/metadata/android/{ko-KR,en-US}/changelogs/2.txt` |
 | Play 업로드용 AAB 준비 | `scripts/play-bundle.sh X.Y.Z` (태그 릴리스 워크플로 산출물을 `dist/`로) |

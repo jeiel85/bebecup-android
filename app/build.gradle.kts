@@ -9,50 +9,60 @@ plugins {
   alias(libs.plugins.secrets)
 }
 
-val releaseSigningPropertiesFile = rootProject.file("release-signing.properties")
-val legacySigningPropertiesFile = rootProject.file("signing.properties")
-val releaseSigningProperties = Properties().apply {
-  when {
-    releaseSigningPropertiesFile.exists() -> releaseSigningPropertiesFile.inputStream().use(::load)
-    legacySigningPropertiesFile.exists() -> legacySigningPropertiesFile.inputStream().use(::load)
-  }
+// Each distribution channel signs with its own key (DECISIONS.md, "채널별 빌드").
+// play   → the Google Play upload key (BEBECUP_RELEASE_*, unchanged since v0.6)
+// github → the standalone APK key on GitHub Releases (BEBECUP_GITHUB_*, since v0.8.1)
+// Values come from environment variables (CI) or a git-ignored properties file.
+fun loadProperties(vararg files: File): Properties = Properties().apply {
+  files.firstOrNull { it.exists() }?.inputStream()?.use(::load)
 }
 
-fun signingValue(name: String, legacyName: String): String? =
-  providers.environmentVariable(name).orNull
-    ?: providers.environmentVariable(legacyName).orNull
-    ?: releaseSigningProperties.getProperty(name)
-    ?: releaseSigningProperties.getProperty(legacyName)
+val playSigningProperties = loadProperties(
+  rootProject.file("release-signing.properties"),
+  rootProject.file("signing.properties"),
+)
+val githubSigningProperties = loadProperties(
+  rootProject.file(".keystore/github-release-signing.properties"),
+)
 
-val releaseStoreFile = signingValue("BEBECUP_RELEASE_STORE_FILE", "STORE_FILE")
-  ?: providers.environmentVariable("RELEASE_STORE_FILE").orNull
-val releaseStorePassword = signingValue("BEBECUP_RELEASE_STORE_PASSWORD", "STORE_PASSWORD")
-  ?: providers.environmentVariable("RELEASE_STORE_PASSWORD").orNull
-val releaseKeyAlias = signingValue("BEBECUP_RELEASE_KEY_ALIAS", "KEY_ALIAS")
-  ?: providers.environmentVariable("RELEASE_KEY_ALIAS").orNull
-val releaseKeyPassword = signingValue("BEBECUP_RELEASE_KEY_PASSWORD", "KEY_PASSWORD")
-  ?: providers.environmentVariable("RELEASE_KEY_PASSWORD").orNull
-val hasReleaseSigningConfig = listOf(
-  releaseStoreFile,
-  releaseStorePassword,
-  releaseKeyAlias,
-  releaseKeyPassword,
-).all { !it.isNullOrBlank() }
+data class ChannelSigning(val storeFile: String?, val storePassword: String?, val keyAlias: String?, val keyPassword: String?) {
+  val isComplete: Boolean get() = listOf(storeFile, storePassword, keyAlias, keyPassword).all { !it.isNullOrBlank() }
+}
+
+fun channelSigning(prefix: String, properties: Properties, legacy: Boolean): ChannelSigning {
+  fun value(suffix: String, legacyName: String): String? =
+    providers.environmentVariable("${prefix}_$suffix").orNull
+      ?: properties.getProperty("${prefix}_$suffix")
+      ?: (if (legacy) providers.environmentVariable(legacyName).orNull ?: properties.getProperty(legacyName) else null)
+      ?: (if (legacy) providers.environmentVariable("RELEASE_$suffix").orNull else null)
+  return ChannelSigning(
+    storeFile = value("STORE_FILE", "STORE_FILE"),
+    storePassword = value("STORE_PASSWORD", "STORE_PASSWORD"),
+    keyAlias = value("KEY_ALIAS", "KEY_ALIAS"),
+    keyPassword = value("KEY_PASSWORD", "KEY_PASSWORD"),
+  )
+}
+
+val playSigning = channelSigning("BEBECUP_RELEASE", playSigningProperties, legacy = true)
+val githubSigning = channelSigning("BEBECUP_GITHUB", githubSigningProperties, legacy = false)
+
 val requireReleaseSigning = providers.gradleProperty("bebecup.requireReleaseSigning")
   .map(String::toBoolean)
   .orElse(false)
   .get()
 
-if (requireReleaseSigning && !hasReleaseSigningConfig) {
-  throw GradleException(
-    "Release signing is required, but one or more signing values are missing. " +
-      "Set BEBECUP_RELEASE_STORE_FILE, BEBECUP_RELEASE_STORE_PASSWORD, " +
-      "BEBECUP_RELEASE_KEY_ALIAS, and BEBECUP_RELEASE_KEY_PASSWORD."
-  )
-}
-
-if (requireReleaseSigning && !rootProject.file(releaseStoreFile!!).exists()) {
-  throw GradleException("Release signing is required, but the keystore file does not exist: $releaseStoreFile")
+if (requireReleaseSigning) {
+  for ((channel, signing) in listOf("play" to playSigning, "github" to githubSigning)) {
+    if (!signing.isComplete) {
+      throw GradleException(
+        "Release signing is required, but the $channel signing values are incomplete. " +
+          "Set BEBECUP_RELEASE_* (play) and BEBECUP_GITHUB_* (github): STORE_FILE, STORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD."
+      )
+    }
+    if (!rootProject.file(signing.storeFile!!).exists()) {
+      throw GradleException("Release signing is required, but the $channel keystore does not exist: ${signing.storeFile}")
+    }
+  }
 }
 
 android {
@@ -72,7 +82,7 @@ android {
   // Make exported Room schemas available to instrumented migration tests.
   sourceSets {
     getByName("androidTest") {
-      assets.srcDirs(files("$projectDir/schemas"))
+      assets.directories += "$projectDir/schemas"
     }
   }
 
@@ -82,13 +92,29 @@ android {
   }
 
   signingConfigs {
-    if (hasReleaseSigningConfig) {
-      create("release") {
-        storeFile = rootProject.file(releaseStoreFile!!)
-        storePassword = releaseStorePassword
-        keyAlias = releaseKeyAlias
-        keyPassword = releaseKeyPassword
+    for ((name, signing) in listOf("play" to playSigning, "github" to githubSigning)) {
+      if (signing.isComplete) {
+        create(name) {
+          storeFile = rootProject.file(signing.storeFile!!)
+          storePassword = signing.storePassword
+          keyAlias = signing.keyAlias
+          keyPassword = signing.keyPassword
+        }
       }
+    }
+  }
+
+  // One build per distribution channel (DECISIONS.md, "채널별 빌드"). Same
+  // applicationId, different signing keys, so one cannot update over the other.
+  flavorDimensions += "channel"
+  productFlavors {
+    create("play") {
+      dimension = "channel"
+      if (playSigning.isComplete) signingConfig = signingConfigs.getByName("play")
+    }
+    create("github") {
+      dimension = "channel"
+      if (githubSigning.isComplete) signingConfig = signingConfigs.getByName("github")
     }
   }
 
@@ -98,9 +124,8 @@ android {
       isMinifyEnabled = true
       isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      if (hasReleaseSigningConfig) {
-        signingConfig = signingConfigs.getByName("release")
-      }
+      // Put native symbol tables in the AAB so Play can read crash and ANR stacks.
+      ndk { debugSymbolLevel = "SYMBOL_TABLE" }
     }
   }
   compileOptions {
@@ -154,10 +179,15 @@ dependencies {
   implementation(libs.coil.compose)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
-  implementation(libs.play.services.base)
-  implementation(libs.play.services.mlkit.face.detection)
-  // Asks the Google Play app whether a newer version is out (home banner). Play installs it; the app never does.
-  implementation(libs.play.app.update)
+  // Face detection: the Play build gets the model from Google Play services
+  // (small AAB); the standalone GitHub APK bundles it so it also works on phones
+  // without Play services. Both expose the same com.google.mlkit.vision.face API.
+  "playImplementation"(libs.play.services.base)
+  "playImplementation"(libs.play.services.mlkit.face.detection)
+  "githubImplementation"(libs.mlkit.face.detection)
+  // Play build only: asks the Google Play app whether a newer version is out (home banner).
+  // Play installs it; the app never does.
+  "playImplementation"(libs.play.app.update)
   // implementation(libs.play.services.location)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)

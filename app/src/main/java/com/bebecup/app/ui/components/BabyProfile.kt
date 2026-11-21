@@ -1,6 +1,5 @@
 package com.bebecup.app.ui.components
 
-import android.app.DatePickerDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,11 +8,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -21,14 +25,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bebecup.app.domain.profile.BabyAge
 import com.bebecup.app.domain.profile.CalendarDate
-import java.util.Calendar
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Asks for the baby's name (optional) and birthday. [onSave] gets the trimmed
@@ -42,9 +47,17 @@ fun BabyProfileDialog(
     onSave: (name: String, birthDate: String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val context = LocalContext.current
     var name by remember { mutableStateOf(initialName) }
     var birth by remember { mutableStateOf(CalendarDate.parse(initialBirthDate)) }
+    var pickingBirth by remember { mutableStateOf(false) }
+
+    if (pickingBirth) {
+        BirthDatePickerDialog(
+            initial = birth,
+            onPick = { birth = it; pickingBirth = false },
+            onDismiss = { pickingBirth = false }
+        )
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -61,17 +74,7 @@ fun BabyProfileDialog(
                         .testTag("baby_name_field")
                 )
                 OutlinedButton(
-                    onClick = {
-                        val today = Calendar.getInstance()
-                        val start = birth
-                        DatePickerDialog(
-                            context,
-                            { _, year, month, day -> birth = CalendarDate(year, month + 1, day) },
-                            start?.year ?: today.get(Calendar.YEAR),
-                            (start?.month ?: (today.get(Calendar.MONTH) + 1)) - 1,
-                            start?.day ?: today.get(Calendar.DAY_OF_MONTH)
-                        ).apply { datePicker.maxDate = System.currentTimeMillis() }.show()
-                    },
+                    onClick = { pickingBirth = true },
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -97,6 +100,47 @@ fun BabyProfileDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text("취소") } }
     )
 }
+
+/**
+ * The app-themed (Material 3) calendar for the birthday. Days after today
+ * cannot be picked. The picker speaks UTC midnight millis; [CalendarDate]
+ * converts through epoch days, so no time zone can shift the date.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BirthDatePickerDialog(
+    initial: CalendarDate?,
+    onPick: (CalendarDate) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val today = remember { CalendarDate.parse(SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Date())) }
+    val lastDayMillis = (today?.epochDay ?: Long.MAX_VALUE / DAY_MILLIS) * DAY_MILLIS
+    val state = rememberDatePickerState(
+        initialSelectedDateMillis = initial?.let { it.epochDay * DAY_MILLIS },
+        yearRange = 1900..(today?.year ?: 2100),
+        selectableDates = object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long): Boolean = utcTimeMillis <= lastDayMillis
+            override fun isSelectableYear(year: Int): Boolean = today == null || year <= today.year
+        }
+    )
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    state.selectedDateMillis?.let { onPick(CalendarDate.fromEpochDay(Math.floorDiv(it, DAY_MILLIS))) }
+                },
+                enabled = state.selectedDateMillis != null,
+                modifier = Modifier.testTag("baby_birth_confirm_btn")
+            ) { Text("확인") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("취소") } }
+    ) {
+        DatePicker(state = state, modifier = Modifier.testTag("baby_birth_picker"))
+    }
+}
+
+private const val DAY_MILLIS = 24L * 60L * 60L * 1000L
 
 /** A small "4개월" label laid over a photo. */
 @Composable

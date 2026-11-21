@@ -26,4 +26,14 @@ class StoreUpdateDecisionTest {
         // Clock moved backwards: ask again rather than waiting hours.
         assertTrue(StoreUpdateDecision.isStale(lastCheckedAt = now + 1_000L, now = now))
     }
+
+    @Test
+    fun bannerHidesOnlyTheVersionTheUserClosed() {
+        assertEquals(9, StoreUpdateDecision.bannerVersionCode(available = 9, dismissedVersionCode = 0))
+        assertEquals(null, StoreUpdateDecision.bannerVersionCode(available = 9, dismissedVersionCode = 9))
+        // A newer version than the one closed shows the banner again.
+        assertEquals(10, StoreUpdateDecision.bannerVersionCode(available = 10, dismissedVersionCode = 9))
+        assertEquals(null, StoreUpdateDecision.bannerVersionCode(available = null, dismissedVersionCode = 0))
+        assertEquals(null, StoreUpdateDecision.bannerVersionCode(available = 0, dismissedVersionCode = 0))
+    }
 }

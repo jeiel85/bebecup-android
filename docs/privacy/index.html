@@ -39,16 +39,19 @@
 <section id="ko" lang="ko">
   <div class="lang-switch"><a href="#ko">한국어</a><a href="#en">English</a></div>
   <h1>베베컵 개인정보처리방침</h1>
-  <p class="meta">최종 업데이트: 2026-11-21</p>
+  <p class="meta">최종 업데이트: 2026-11-22</p>
 
   <h2>1. 서비스</h2>
   <p>베베컵은 부모 또는 보호자가 직접 선택한 로컬 아기 사진으로 이상형 월드컵을 만들고 인화 후보를 정리하는 Android 앱입니다.</p>
 
   <h2>2. 처리하는 정보</h2>
-  <p>앱은 사용자가 Android Photo Picker에서 직접 선택한 사진의 로컬 URI와 앱 사용 중 생성한 후보/월드컵 기록을 기기 내부 저장소에 저장합니다. 사용자가 원해서 입력한 경우 아기 이름(또는 태명)과 생일도 기기 내부 저장소에 저장하며, 사진이 아기가 몇 개월 때 찍은 것인지 계산해 보여 주는 데만 씁니다.</p>
+  <p>앱은 사용자가 Android Photo Picker에서 직접 선택한 사진의 로컬 URI와 앱 사용 중 생성한 후보/월드컵 기록을 기기 내부 저장소에 저장합니다. 사용자가 사진 접근을 허용하고 사진 정리를 시작하면, 기간 안의 최근 사진을 기기 안에서 읽어 흔들림·노출·얼굴·눈 뜸·표정을 분석하고 그 점수를 기기 내부 저장소에 저장합니다. 사용자가 원해서 입력한 경우 아기 이름(또는 태명)과 생일도 기기 내부 저장소에 저장하며, 사진이 아기가 몇 개월 때 찍은 것인지 계산해 보여 주는 데만 씁니다.</p>
 
   <h2>3. 수집 및 공유</h2>
-  <p>베베컵은 사진 파일, 사진 URI, 사용 기록, 기기 식별자, 위치 정보, 연락처, 계정 정보를 외부 서버로 전송하거나 제3자와 공유하지 않습니다. 분석, 광고, 추적 SDK를 사용하지 않습니다.</p>
+  <p>베베컵은 사진 파일, 사진 URI, 사진 분석·얼굴 인식 결과, 아기 정보, 위치 정보, 연락처, 계정 정보를 외부 서버로 보내거나 제3자와 공유하지 않습니다. 광고·분석·추적 SDK를 넣지 않습니다.</p>
+  <p>얼굴 인식에는 Google ML Kit을 씁니다. 얼굴 인식은 기기 안에서만 이뤄지지만, ML Kit은 기능의 성능과 사용에 관한 지표(기기 제조사·모델, Android 버전, 앱 패키지 이름·버전, 처리 시간, 이벤트 종류, 오류 코드, 설치마다 만들어지는 식별자)를 Google에 보낼 수 있습니다. 사진, 얼굴 데이터, 인식 결과는 보내지 않습니다. 이 전송은 앱에서 끌 수 없습니다. 자세한 내용은 Google의 <a href="https://developers.google.com/ml-kit/terms">ML Kit 약관</a>과 <a href="https://developers.google.com/ml-kit/android-data-disclosure">Android 데이터 공개 안내</a>에 있습니다.</p>
+  <p>Google Play에서 설치한 앱은 얼굴 인식 모델을 처음 쓸 때 Google Play 서비스가 내려받습니다. 이때도 사진은 기기 밖으로 나가지 않습니다. GitHub에서 받은 APK는 모델이 앱 안에 들어 있습니다.</p>
+  <p>Google Play에서 설치한 앱은 새 버전이 있는지 기기의 Google Play 앱에 묻습니다(Play 인앱 업데이트). 이 확인과 업데이트 설치는 Google Play가 처리합니다.</p>
 
   <h2>4. 외부 인화 사이트</h2>
   <p>앱은 사용자가 명시적으로 선택한 경우 외부 인화 사이트를 브라우저로 열 수 있습니다. 이 경우 이후의 개인정보 처리와 주문 절차는 해당 외부 사이트의 정책을 따릅니다. 베베컵은 사진 파일을 외부 인화 사이트에 자동 업로드하지 않습니다.</p>
@@ -57,7 +60,7 @@
   <p>사진 후보와 기록은 사용자의 기기에만 저장됩니다. 사용자는 앱 안에서 후보를 삭제하거나 Android 설정에서 앱 데이터를 삭제할 수 있으며, 앱을 삭제하면 로컬 데이터도 함께 삭제됩니다. 아기 정보는 앱 설정에서 언제든 지울 수 있습니다. 휴대폰에서 Google 백업을 켜 둔 경우 Android가 앱 데이터를 사용자 본인의 Google 계정 백업에 포함할 수 있습니다.</p>
 
   <h2>6. 보안</h2>
-  <p>앱 데이터는 Android 앱 샌드박스 안에 저장됩니다. 외부 서버 전송이 없으므로 전송 구간 암호화 대상 데이터는 없습니다.</p>
+  <p>앱 데이터는 Android 앱 샌드박스 안에 저장됩니다. 베베컵이 직접 외부로 보내는 데이터는 없습니다. 3항의 ML Kit 지표는 Google이 보내고 처리합니다.</p>
 
   <h2>7. 어린이 데이터</h2>
   <p>베베컵은 어린이를 대상으로 제작된 앱이 아니며, 18세 이상의 부모 및 보호자가 사용하도록 설계되었습니다. 앱은 어린이로부터 어떠한 개인정보도 직접 수집하지 않습니다.</p>
@@ -76,16 +79,19 @@
 
 <section id="en" lang="en">
   <h1>Bebecup Privacy Policy</h1>
-  <p class="meta">Last updated: 2026-11-21</p>
+  <p class="meta">Last updated: 2026-11-22</p>
 
   <h2>1. Service</h2>
   <p>Bebecup is an Android app that lets parents and guardians build a photo tournament from local baby photos they personally choose, and organize favorite photos for printing.</p>
 
   <h2>2. Information processed</h2>
-  <p>The app stores, on the device only, the local URIs of photos the user explicitly selects through the Android Photo Picker, together with the tournament and candidate records the user creates while using the app. If the user chooses to enter them, the baby's name (or nickname) and birthday are also stored on the device only, and are used only to show how old the baby was in each photo.</p>
+  <p>The app stores, on the device only, the local URIs of photos the user explicitly selects through the Android Photo Picker, together with the tournament and candidate records the user creates while using the app. When the user allows photo access and starts sorting, the app reads recent photos from the chosen period on the device, analyzes blur, exposure, faces, open eyes and expressions there, and stores those scores on the device only. If the user chooses to enter them, the baby's name (or nickname) and birthday are also stored on the device only, and are used only to show how old the baby was in each photo.</p>
 
   <h2>3. Collection and sharing</h2>
-  <p>Bebecup does not transmit photo files, photo URIs, usage records, device identifiers, location, contacts, or account information to any external server, and does not share them with third parties. No analytics, advertising, or tracking SDKs are used.</p>
+  <p>Bebecup does not send photo files, photo URIs, photo analysis or face detection results, the baby's details, location, contacts, or account information to any external server, and does not share them with third parties. No advertising, analytics, or tracking SDKs are included.</p>
+  <p>Face detection uses Google ML Kit. Detection runs entirely on the device, but ML Kit may send Google metrics about the feature's performance and use (device maker and model, Android version, app package name and version, processing time, event type, error codes, and a per-installation identifier). It does not send photos, face data, or detection results. The app cannot turn this off. See Google's <a href="https://developers.google.com/ml-kit/terms">ML Kit terms</a> and <a href="https://developers.google.com/ml-kit/android-data-disclosure">Android data disclosure</a>.</p>
+  <p>When installed from Google Play, the face detection model is downloaded by Google Play services the first time it is needed; photos stay on the device. The APK from GitHub includes the model.</p>
+  <p>When installed from Google Play, the app asks the Google Play app on the device whether a newer version is available (Play In-App Updates). Google Play handles that check and any update.</p>
 
   <h2>4. External print sites</h2>
   <p>The app may open external print sites in the user's browser when the user explicitly chooses to do so. Any subsequent data processing and ordering on those sites is governed by the policies of those external services. Bebecup does not automatically upload photo files to external print sites.</p>
@@ -94,7 +100,7 @@
   <p>Photo candidates and records are stored only on the user's device. The user can delete candidates from inside the app, clear app data from Android system settings, or uninstall the app, which also removes the local data. The baby's details can be cleared at any time in the app's settings. If Google backup is turned on for the phone, Android may include app data in the user's own Google account backup.</p>
 
   <h2>6. Security</h2>
-  <p>App data is stored inside the Android app sandbox. Because no data is transmitted to external servers, no in-transit data is subject to encryption requirements.</p>
+  <p>App data is stored inside the Android app sandbox. Bebecup itself sends no data off the device; the ML Kit metrics in section 3 are sent and processed by Google.</p>
 
   <h2>7. Children's data</h2>
   <p>Bebecup is not designed for children. It is intended for use by parents and guardians aged 18 or older. The app does not directly collect any personal information from children.</p>

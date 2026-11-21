@@ -35,23 +35,27 @@ com.bebecup.app
 
 가능하면 다음 명령을 사용한다.
 
+배포 채널마다 flavor가 있다(`play`: Google Play AAB, `github`: GitHub Releases APK, 키도 다름 — `docs/RELEASE.md`). 태스크 이름에 flavor가 들어간다.
+
 ```bash
-./gradlew test
-./gradlew assembleDebug
-./gradlew :app:lintRelease
-./gradlew :app:bundleRelease
+./gradlew testPlayDebugUnitTest testGithubDebugUnitTest
+./gradlew assemblePlayDebug assembleGithubDebug
+./gradlew :app:lintPlayRelease :app:lintGithubRelease
+./gradlew :app:bundlePlayRelease :app:assembleGithubRelease
 ```
 
-릴리즈 검증 시에는 AAB 산출물 확인을 반드시 포함한다.
+로컬 Windows에서는 `.\gradlew.bat`를 쓴다.
 
-- `app/build/outputs/bundle/release/app-release.aab` 파일 존재 여부 확인
+릴리즈 검증 시에는 산출물 확인을 반드시 포함한다.
+
+- `app/build/outputs/bundle/playRelease/app-play-release.aab`와 `app/build/outputs/apk/github/release/app-github-release.apk`(서명 없으면 `-unsigned`) 존재 여부 확인
 - 파일 크기가 0보다 큰지 확인
 
 ## Release Artifact Export
 
 사용자가 "새 버전 만들기"를 요청하면 버전 bump, CHANGELOG, fastlane changelog(`fastlane/metadata/android/{ko-KR,en-US}/changelogs/<versionCode>.txt`, locale별 500자 이하), 검증, PR 머지, `vX.Y.Z` 태그 푸시까지 진행한다. 바탕화면으로 파일을 내보내지 않는다(2026-11-20 사용자 지시).
 
-- **GitHub**: 태그 푸시 시 릴리스 워크플로가 서명된 APK와 mapping을 GitHub Release에 올린다.
+- **GitHub**: 태그 푸시 시 릴리스 워크플로가 GitHub 키로 서명한 `github` 빌드 APK와 그 mapping을 GitHub Release에 올린다.
 - **Google Play**: 같은 워크플로의 `play-alpha` 작업이 Play 업로드 키로 서명한 AAB를 Google Play Developer Publishing API로 **비공개 테스트 - Alpha** 트랙에 올린다(출시 노트는 위 fastlane changelog, mapping 포함). 기본은 **draft**라 태그 푸시 후 Play Console에서 초안을 확인하고 '검토 → 출시'를 누른다(저장소 변수 `PLAY_RELEASE_STATUS=completed`면 바로 출시). 결과는 `play-alpha` 작업 로그로 확인한다. 세부와 서비스 계정 준비는 `docs/RELEASE.md`, 설계는 `DECISIONS.md`.
   - 시크릿 `PLAY_SERVICE_ACCOUNT_JSON`이 없으면 작업이 경고만 남기고 건너뛴다. 이때나 업로드가 실패해 다시 올릴 때는 `scripts/play-upload.sh X.Y.Z`(키: `.keystore/play-service-account.json`, `dist/`에 AAB가 없으면 `scripts/play-bundle.sh`로 먼저 받음)를 쓴다.
   - 프로덕션은 사용자가 따로 지시할 때만 `--track production --allow-production`으로 올린다. 워크플로는 alpha만 쓴다.

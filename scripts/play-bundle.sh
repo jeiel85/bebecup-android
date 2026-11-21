@@ -4,8 +4,10 @@
 #   scripts/play-bundle.sh 0.7.0
 #
 # 업로드 키 비밀번호는 지금 GitHub Secrets에만 있으므로(issue #4) 로컬에서 서명하지 않고,
-# 태그 v<버전>의 릴리스 워크플로가 Play 업로드 키로 서명해 남긴 산출물 `bebecup-release-aab`를 받습니다.
-# 결과: dist/bebecup-play-<버전>-vc<versionCode>-<커밋>.aab + 같은 이름의 -release-notes.txt
+# 태그 v<버전>의 릴리스 워크플로가 Play 업로드 키로 서명해 남긴 산출물 `bebecup-release-aab`와
+# 그 빌드의 R8 mapping(`bebecup-release-mapping`)을 받습니다. v0.9.0 다음 버전부터 Play 빌드(play flavor)와
+# GitHub APK(github flavor)는 따로 빌드되므로 GitHub Release의 mapping은 Play AAB와 맞지 않습니다.
+# 결과: dist/bebecup-play-<버전>-vc<versionCode>-<커밋>.aab + 같은 이름의 -mapping.txt, -release-notes.txt
 # 같은 이름이 있으면 멈추고, 받을 때마다 dist/play-builds.log에 시각·버전·커밋·SHA-256을 남깁니다.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -33,10 +35,19 @@ RELEASE_JOB="$(gh run view "$RUN" --json jobs --jq '.jobs[] | select(.name=="rel
 [ "$RELEASE_JOB" = "success" ] || { echo "✗ 실행 $RUN의 release 작업이 성공하지 않았어요($RELEASE_JOB)"; exit 1; }
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
-gh run download "$RUN" -n bebecup-release-aab -D "$TMP"
-SIGNER="$(keytool -printcert -jarfile "$TMP/app-release.aab" | sed -n 's/^\s*SHA256: //p' | head -1)"
+gh run download "$RUN" -n bebecup-release-aab -D "$TMP/aab"
+# v0.9.0까지는 app-release.aab, 그다음부터는 app-play-release.aab
+shopt -s nullglob
+AAB_FILES=("$TMP"/aab/*.aab)
+[ ${#AAB_FILES[@]} -eq 1 ] || { echo "✗ 산출물에 AAB가 하나가 아니에요: ${AAB_FILES[*]:-없음}"; exit 1; }
+SIGNER="$(keytool -printcert -jarfile "${AAB_FILES[0]}" | sed -n 's/^\s*SHA256: //p' | head -1)"
 [ "$SIGNER" = "$UPLOAD_SHA256" ] || { echo "✗ 서명 인증서가 Play 업로드 키와 달라요: $SIGNER"; exit 1; }
-cp "$TMP/app-release.aab" "$BASE.aab"
+cp "${AAB_FILES[0]}" "$BASE.aab"
+if gh run download "$RUN" -n bebecup-release-mapping -D "$TMP/mapping" && [ -s "$TMP/mapping/mapping.txt" ]; then
+  cp "$TMP/mapping/mapping.txt" "$BASE-mapping.txt"
+else
+  echo "⚠ 실행 $RUN의 mapping 산출물을 받지 못했어요(보존 기간이 지났을 수 있어요). AAB만 준비해요"
+fi
 
 {
   printf '<ko-KR>\n%s\n</ko-KR>\n' "$(git show "$TAG:fastlane/metadata/android/ko-KR/changelogs/$CODE.txt" | tr -d '\r')"
@@ -49,4 +60,5 @@ echo "✓ $BASE.aab"
 echo "  run    $RUN"
 echo "  sha256 $SHA"
 echo "  signer $SIGNER"
+[ ! -e "$BASE-mapping.txt" ] || echo "✓ $BASE-mapping.txt"
 echo "✓ $BASE-release-notes.txt"

@@ -1,5 +1,16 @@
 # History
 
+## 2026-11-22 (하드닝 이슈 묶음: #3·#8·#11·#14·#15)
+
+- **채널 분리(#3·#8·#11)**: `play`/`github` flavor. GitHub용 새 서명 키를 만들어 로컬 `.keystore/`와 드라이브에 백업(바이트 비교), GitHub Secrets `BEBECUP_GITHUB_*` 4개 등록. Play 업로드 키는 그대로. GitHub 빌드는 번들형 ML Kit, Play 빌드는 Play 서비스 모델 + 업데이트 배너. 릴리스 워크플로가 두 산출물의 인증서 SHA-256을 확인함(`DECISIONS.md`).
+- **업데이트 배너(#11)**: 닫기(versionCode별, prefs), 마지막 확인 시각·제공 버전을 prefs에 저장해 콜드 스타트마다 Play에 묻지 않음, 확인 실패를 연속 횟수와 함께 `Log.w`로.
+- **사진 데이터(#3·#8)**: 정리 저장 시 보관하지 않은 스캔 행 삭제(분석 행은 FK cascade), 지워진 사진(FileNotFoundException만) 알림·정리, 추천 사유를 이번 스캔의 숏리스트 규칙으로 범위 지정, `CURRENT_ANALYSIS_VERSION` 3 + 옛 버전 분석 행 삭제.
+- **날짜(#14)**: 스캔 사진도 EXIF 촬영일 우선, 날짜 문자열 `Locale.ROOT`, 날짜 보정 대상을 제목 대신 보관함·인화함 전체로(새 prefs 키로 한 번 더 실행), 생일 선택을 Material 3 DatePicker로.
+- **월드컵 복원(#3)**: `TournamentEngine.Snapshot`을 사진 id 배열로 `SavedStateHandle`에 저장, 프로세스 종료 후 같은 경기로 복원. 플레이 화면을 떠나면 버림.
+- **빌드 경고(#3·#8)**: Room `fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)`, AGP `assets.directories`, 어노테이션 대상 경고, Play AAB에 네이티브 기호 표(`debugSymbolLevel`).
+- **개인정보(#8·#15)**: ML Kit 지표 전송을 끄지 않고 방침·README·랜딩·설정 문구를 사실대로 고침(`DECISIONS.md`). Play 데이터 보안 양식은 사용자가 고칠 몫.
+- **이월**: 형제자매(다자녀) 지원, 넛지의 아기 사진 판별 → `BACKLOG.md`.
+- **검증**: PR에 기록.
 ## 2026-11-21 (이달의 월드컵)
 
 - **배경**: 벤치마크 1순위 두 번째. 경쟁 앱이 사람을 다시 오게 하는 장치는 매달 나오는 결과물인데, 베베컵의 넛지는 장수 기준뿐이었음.

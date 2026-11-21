@@ -64,6 +64,16 @@ class BabyAgeTest {
     }
 
     @Test
+    fun `epoch days convert back to the same calendar date`() {
+        assertEquals(CalendarDate(1970, 1, 1), CalendarDate.fromEpochDay(0))
+        assertEquals(CalendarDate(1969, 12, 31), CalendarDate.fromEpochDay(-1))
+        listOf("2000-02-29", "2024-02-29", "2026-03-01", "2026-12-31", "2100-03-01").forEach { text ->
+            val date = CalendarDate.parse(text)!!
+            assertEquals(text, CalendarDate.fromEpochDay(date.epochDay).toString())
+        }
+    }
+
+    @Test
     fun `taken dates come from EXIF text or epoch millis`() {
         assertEquals("2026-05-20", TakenDates.fromExif("2026:05:20 14:03:11"))
         assertNull(TakenDates.fromExif("0000:00:00 00:00:00"))

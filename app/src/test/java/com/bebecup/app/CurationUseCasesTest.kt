@@ -124,6 +124,50 @@ class CurationUseCasesTest {
     }
 
     @Test
+    fun `explain covers only the current scan's photos`() = runBlocking {
+        val oldHigh = insertPhoto("oldHigh"); val cur = insertPhoto("cur")
+        aiRepo.saveAnalyses(listOf(analysis(oldHigh, 99f), analysis(cur, 50f)))
+
+        val count = ExplainTopPhotosUseCase(babyRepo, aiRepo, RuleBasedVisionExplainer())(limit = 1, photoIds = setOf(cur))
+
+        assertEquals(1, count)
+        assertNotNull(aiRepo.getAnalysis(cur)!!.aiReasonKo)
+        // A higher score from an earlier scan must not take the slot.
+        assertEquals(null, aiRepo.getAnalysis(oldHigh)!!.aiReasonKo)
+    }
+
+    @Test
+    fun `stale analysis versions are dropped`() = runBlocking {
+        val a = insertPhoto("A")
+        aiRepo.saveAnalysis(analysis(a, 90f).copy(analysisVersion = PhotoAnalysisEntity.CURRENT_ANALYSIS_VERSION - 1))
+        aiRepo.saveAnalysis(analysis(a, 80f))
+
+        assertEquals(1, aiRepo.deleteStaleAnalyses())
+        assertEquals(80f, aiRepo.getAnalysis(a)!!.overallScore, 0.001f)
+    }
+
+    @Test
+    fun `pruning keeps only photos the family kept`() = runBlocking {
+        val scanned = insertPhoto("scanned")
+        val saved = insertPhoto("saved")
+        val inCart = insertPhoto("inCart")
+        val champion = insertPhoto("champion")
+        babyRepo.markBest(listOf(saved), 1L)
+        babyRepo.setInPrintCart(inCart, true)
+        babyRepo.incrementChampionships(champion)
+        aiRepo.saveAnalysis(analysis(scanned, 70f))
+
+        assertEquals(1, babyRepo.pruneUnkeptPhotos())
+
+        assertEquals(null, babyRepo.getPhotoById(scanned))
+        assertNotNull(babyRepo.getPhotoById(saved))
+        assertNotNull(babyRepo.getPhotoById(inCart))
+        assertNotNull(babyRepo.getPhotoById(champion))
+        // Its analysis goes with it (foreign key cascade).
+        assertEquals(null, aiRepo.getAnalysis(scanned))
+    }
+
+    @Test
     fun `analyze skips already-analyzed photos`() = runBlocking {
         val a = insertPhoto("A"); val b = insertPhoto("B")
         aiRepo.saveAnalysis(analysis(a, 90f)) // a already analyzed
