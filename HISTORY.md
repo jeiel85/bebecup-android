@@ -7,6 +7,7 @@
 - **함께 고침**: 사진첩에서 직접 담은 사진이 `takenDate`=담은 날로 저장되던 문제. `PhotoMetadataReader.readTakenDate`(EXIF DateTimeOriginal → DATE_TAKEN)로 읽고, 기존 "직접 고른 사진"은 앱 시작 때 한 번 다시 읽음(`pickedPhotoDatesFixed`).
 - **개인정보처리방침**: 아기 이름·생일의 기기 저장과 Google 백업 포함 가능성을 추가.
 - **검증**: PR에 기록.
+- **릴리스**: v0.8.0(versionCode 9)으로 GitHub 릴리스와 Play 비공개 테스트 - Alpha에 함께 올림.
 
 ## 2026-11-21 (Play 업데이트 배너)
 
