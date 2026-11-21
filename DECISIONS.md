@@ -2,6 +2,71 @@
 
 되돌리기 어려운 결정(보안·데이터 형식·공개 API·인프라·주요 의존성)만 기록한다.
 
+## 2026-11-22 채널별 빌드: `play`·`github` flavor와 채널별 서명 키
+
+### 배경
+
+v0.9.0까지 GitHub 릴리스 APK와 Play 업로드 AAB가 한 빌드, 한 키(`bebecup-release.p12`)였다. 전역 규칙은 채널마다
+별도 빌드·별도 키를 쓰고, 스토어 업데이트에 맡기는 채널과 그렇지 않은 채널의 코드를 나누라고 한다(#3).
+또 Play 서비스에서 받는 얼굴 인식 모델은 Play 서비스가 없는 기기의 GitHub APK 사용자에게 정리 기능을 막았고(#8),
+Play 업데이트 배너가 GitHub APK에서도 뜰 수 있었다(#11).
+
+### 선택지
+
+| 선택지 | 장점 | 단점 |
+| --- | --- | --- |
+| 한 빌드 유지, 설치 출처로 런타임 분기 | 빌드 하나 | 전역 규칙 위반, 두 채널 코드·의존성이 한 APK에 섞임 |
+| **flavor 분리 + GitHub 키 새로 만들기, Play 업로드 키 유지** | Play 쪽 변경 없음(업로드 키 재설정 불필요) | 기존 GitHub APK 설치본은 한 번 지우고 다시 설치 |
+| flavor 분리 + Play 업로드 키 재설정, 기존 키는 GitHub 전용 | GitHub 사용자 재설치 없음 | Play 업로드 키 재설정 승인 대기, 기존 키 비밀번호가 로컬에 없음(#4) |
+
+### 결정
+
+**flavor `play`/`github`(dimension `channel`) + GitHub 전용 새 키**.
+
+- `play`: Play 업로드 키(`BEBECUP_RELEASE_*`, 변화 없음). 얼굴 인식은 Play 서비스 모델(`play-services-mlkit-face-detection`,
+  `FaceModelInstaller`가 `ModuleInstallClient`로 받음), 홈 업데이트 배너(`app-update`)가 있다.
+- `github`: 새 키 `bebecup-github`(`BEBECUP_GITHUB_*`, SHA-256 `87:34:B5:…:79:66`, 2026-11-21 생성, 드라이브 백업). 얼굴 인식 모델을 APK에
+  넣은 번들형(`com.google.mlkit:face-detection`, 같은 `com.google.mlkit.vision.face` API)이라 Play 서비스 없이 동작한다.
+  업데이트 배너는 없다. 앱이 직접 APK를 받아 설치하는 업데이터는 이번에 만들지 않았다(수요 확인 전).
+- 채널별 코드는 `src/play`·`src/github`의 같은 이름 클래스(`ai/FaceModelInstaller`, `update/UpdateChannel`)로 나누고,
+  공통 코드는 `UpdateBannerState`만 안다.
+- 릴리스 워크플로는 두 키를 복원해 `assembleGithubRelease`·`bundlePlayRelease`를 만들고, 각 산출물의 인증서 SHA-256을 문서의 값과
+  비교해 다르면 멈춘다. GitHub Release에는 GitHub APK와 그 mapping, Play에는 Play AAB와 그 mapping이 간다.
+- 기존 GitHub APK(v0.9.0 이하, Play 업로드 키 서명) 사용자는 다음 버전을 덮어 설치할 수 없어 한 번 지우고 설치해야 한다. CHANGELOG에 적는다.
+
+### 되돌리기·재검토 조건
+
+- GitHub 키(`.keystore/bebecup-github-release.p12`와 비밀번호 파일)는 드라이브에 백업돼 있다. 잃으면 GitHub 사용자는 또 재설치해야 한다.
+- GitHub 빌드 사용자가 업데이트를 놓친다는 신고가 오면 GitHub 릴리스 기반 업데이트 확인(+ `REQUEST_INSTALL_PACKAGES`)을 `github` 소스셋에만 넣는다.
+- 분석 점수는 채널마다 모델이 달라 조금 다를 수 있다. 한 설치본 안에서는 모델이 하나라 섞이지 않는다. v0.7.1 이전 번들 모델 점수가 섞이지 않게
+  `CURRENT_ANALYSIS_VERSION`을 3으로 올렸다(이전 결정 "얼굴 인식 모델을 Google Play 서비스에서 받기"의 재검토 조건을 뒤집음). 다시 분석되는 것은
+  정리할 때 스캔 기간 안의 사진뿐이라 비용이 작다.
+
+## 2026-11-22 ML Kit 사용 지표 전송은 끄지 않고 방침에 적는다
+
+### 배경
+
+에뮬레이터 앱 데이터에서 `com.google.android.datatransport.events` DB를 발견했다(#15). 개인정보처리방침은 "사용 기록·기기 식별자를
+보내지 않고 분석 SDK를 쓰지 않는다"고 적고 있었다.
+
+### 확인한 사실
+
+- Google ML Kit 약관과 Android 데이터 공개 안내(developers.google.com/ml-kit/terms, /ml-kit/android-data-disclosure)는 ML Kit이
+  API 성능·사용 지표(기기 제조사·모델, OS 버전, 앱 패키지 이름·버전, 지연 시간, 이벤트 종류, 오류 코드, 설치별 식별자)를 Google에 보낸다고 적는다.
+  사진·얼굴 데이터와 인식 결과는 보내지 않는다.
+- 이 전송을 끄는 공식 설정은 찾지 못했다. 매니페스트에서 datatransport 백엔드를 빼는 비공식 방법이 알려져 있으나, 라이브러리 내부에 기대
+  버전마다 깨질 수 있고 Play 서비스 모델(`play` 빌드)에서는 효과를 확인할 수 없다.
+
+### 결정
+
+비공식 차단은 하지 않는다. 개인정보처리방침(웹·초안), README, 랜딩 페이지, 설정 화면 문구를 사실대로 고친다: 사진·인식 결과는 보내지 않음,
+ML Kit이 위 지표를 Google에 보낼 수 있음, 앱에서 끌 수 없음, 광고·추적 SDK 없음. Play Console 데이터 보안 양식 답변은 사용자가 고친다.
+
+### 되돌리기·재검토 조건
+
+- Google이 공식 끄기 설정을 내면 적용하고 방침을 다시 고친다.
+- 얼굴 인식을 ML Kit이 아닌 다른 온디바이스 모델로 바꾸면 이 항목을 다시 본다.
+
 ## 2026-11-21 Play 업데이트 배너는 채널 분리 전에도 한 빌드에 넣는다
 
 ### 배경

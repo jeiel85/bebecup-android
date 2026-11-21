@@ -38,6 +38,7 @@ robolectric = "4.16.1"
 roborazzi = "1.59.0"
 secretsGradlePlugin = "2.0.1"
 playServicesMlkitFaceDetection = "17.1.0"
+mlkitFaceDetection = "16.1.7"
 playServicesBase = "18.11.1"
 workRuntime = "2.10.1"
 playAppUpdate = "2.1.0"
@@ -91,6 +92,7 @@ roborazzi = { group = "io.github.takahirom.roborazzi", name = "roborazzi", versi
 roborazzi-compose = { group = "io.github.takahirom.roborazzi", name = "roborazzi-compose", version.ref = "roborazzi" }
 roborazzi-junit-rule = { group = "io.github.takahirom.roborazzi", name = "roborazzi-junit-rule", version.ref = "roborazzi" }
 play-services-mlkit-face-detection = { group = "com.google.android.gms", name = "play-services-mlkit-face-detection", version.ref = "playServicesMlkitFaceDetection" }
+mlkit-face-detection = { group = "com.google.mlkit", name = "face-detection", version.ref = "mlkitFaceDetection" }
 play-services-base = { group = "com.google.android.gms", name = "play-services-base", version.ref = "playServicesBase" }
 play-app-update = { group = "com.google.android.play", name = "app-update", version.ref = "playAppUpdate" }
 [plugins]

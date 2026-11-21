@@ -44,7 +44,7 @@ abstract class AppDatabase : RoomDatabase() {
                     // [ALL_MIGRATIONS] / Migrations.kt.
                     .addMigrations(*ALL_MIGRATIONS)
                     // Only wipe on an (unsupported) downgrade, never on upgrade.
-                    .fallbackToDestructiveMigrationOnDowngrade()
+                    .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
                     .build()
                 INSTANCE = instance
                 instance

@@ -103,7 +103,10 @@ fun SettingsScreen(viewModel: BabyCupViewModel) {
             }
 
             SettingsCard("개인정보") {
-                Caption("사진 분석은 모두 이 기기 안에서만 해요. 광고·분석·추적 도구는 쓰지 않아요.")
+                Caption(
+                    "사진 분석은 모두 이 기기 안에서만 해요. 사진과 분석 결과는 밖으로 나가지 않고, 광고·추적 도구도 쓰지 않아요. " +
+                        "얼굴 인식에 쓰는 Google ML Kit은 기능 사용 지표(기기 모델, 앱 버전 등)를 Google에 보낼 수 있어요."
+                )
                 OutlinedButton(
                     onClick = { showDeleteConfirm = true },
                     modifier = Modifier

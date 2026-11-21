@@ -41,7 +41,7 @@ import kotlinx.coroutines.launch
  * the opt-in for "사진이 쌓이면 알려드려요". Shown once.
  */
 private data class OnboardingPage(
-    @DrawableRes val illustration: Int,
+    @param:DrawableRes val illustration: Int,
     val title: String,
     val body: String
 )

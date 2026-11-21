@@ -62,10 +62,33 @@ class BebecupPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_BABY_PROMPT_DISMISSED, false)
         set(value) = prefs.edit().putBoolean(KEY_BABY_PROMPT_DISMISSED, value).apply()
 
-    /** Hand-picked photos saved before v0.8 got the pick day as their date; set once they are re-read. */
-    var pickedPhotoDatesFixed: Boolean
-        get() = prefs.getBoolean(KEY_PICKED_DATES_FIXED, false)
-        set(value) = prefs.edit().putBoolean(KEY_PICKED_DATES_FIXED, value).apply()
+    /**
+     * Kept photos (보관함·인화함) saved before the channel split (after v0.9.0) may carry the pick day or
+     * the gallery's add day as their date; set once they are re-read from EXIF.
+     */
+    var keptPhotoDatesFixed: Boolean
+        get() = prefs.getBoolean(KEY_KEPT_DATES_FIXED, false)
+        set(value) = prefs.edit().putBoolean(KEY_KEPT_DATES_FIXED, value).apply()
+
+    /** Play build: when Play last answered the update check; 0 = never. */
+    var updateLastCheckedAtMillis: Long
+        get() = prefs.getLong(KEY_UPDATE_LAST_CHECKED, 0L)
+        set(value) = prefs.edit().putLong(KEY_UPDATE_LAST_CHECKED, value).apply()
+
+    /** Play build: the newer versionCode Play last offered; 0 = none. */
+    var updateOfferedVersionCode: Int
+        get() = prefs.getInt(KEY_UPDATE_OFFERED, 0)
+        set(value) = prefs.edit().putInt(KEY_UPDATE_OFFERED, value).apply()
+
+    /** Play build: the versionCode whose home banner the parent closed; 0 = none. */
+    var updateDismissedVersionCode: Int
+        get() = prefs.getInt(KEY_UPDATE_DISMISSED, 0)
+        set(value) = prefs.edit().putInt(KEY_UPDATE_DISMISSED, value).apply()
+
+    /** Play build: update checks in a row that got no answer from Play. */
+    var updateCheckFailures: Int
+        get() = prefs.getInt(KEY_UPDATE_FAILURES, 0)
+        set(value) = prefs.edit().putInt(KEY_UPDATE_FAILURES, value).apply()
 
     /** "yyyy-MM" of the 이달의 월드컵 the parent skipped on the home card; "" = none. */
     var monthlyCupSkippedMonth: String
@@ -93,8 +116,14 @@ class BebecupPrefs(context: Context) {
         private const val KEY_BABY_NAME = "baby_name"
         private const val KEY_BABY_BIRTH_DATE = "baby_birth_date"
         private const val KEY_BABY_PROMPT_DISMISSED = "baby_profile_prompt_dismissed"
-        private const val KEY_PICKED_DATES_FIXED = "picked_photo_dates_fixed"
         private const val KEY_MONTHLY_SKIPPED = "monthly_cup_skipped_month"
         private const val KEY_MONTHLY_NOTIFIED = "monthly_cup_notified_month"
+        // v0.8.0 only re-read hand-picked photos under "picked_photo_dates_fixed";
+        // a new key so scanned photos get the same one-time fix.
+        private const val KEY_KEPT_DATES_FIXED = "kept_photo_dates_fixed"
+        private const val KEY_UPDATE_LAST_CHECKED = "update_last_checked_at"
+        private const val KEY_UPDATE_OFFERED = "update_offered_version_code"
+        private const val KEY_UPDATE_DISMISSED = "update_dismissed_version_code"
+        private const val KEY_UPDATE_FAILURES = "update_check_failures"
     }
 }

@@ -37,6 +37,10 @@ interface PhotoAnalysisDao {
     @Query("SELECT * FROM photo_analysis WHERE analysisVersion = :version ORDER BY overallScore DESC LIMIT :limit")
     suspend fun getTopByScore(version: Int, limit: Int): List<PhotoAnalysisEntity>
 
+    /** Rows from an older scoring pipeline; they are never read again. */
+    @Query("DELETE FROM photo_analysis WHERE analysisVersion != :currentVersion")
+    suspend fun deleteOtherVersions(currentVersion: Int): Int
+
     /** Privacy: "delete all local analysis data". */
     @Query("DELETE FROM photo_analysis")
     suspend fun deleteAll()

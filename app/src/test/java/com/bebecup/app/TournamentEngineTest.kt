@@ -93,4 +93,38 @@ class TournamentEngineTest {
     fun `a single photo cannot make a tournament`() {
         TournamentEngine(listOf("a"))
     }
+
+    @Test
+    fun `a snapshot resumes the bracket exactly where it stopped`() {
+        val original = TournamentEngine(listOf("a", "b", "c", "d", "e"))
+        original.vote(original.currentMatch!!, "a")
+        original.vote(original.currentMatch!!, "d") // round 2 starts: a, d, e(bye)
+        original.vote(original.currentMatch!!, "a")
+
+        val saved = original.snapshot()!!.map { it.uppercase() }
+        val resumed = TournamentEngine.restore(saved.map { it.lowercase() })!!
+
+        assertEquals(5, resumed.bracketSize)
+        assertEquals(original.currentMatch, resumed.currentMatch)
+        assertEquals(original.roundSize, resumed.roundSize)
+        assertEquals(original.currentMatchNumber, resumed.currentMatchNumber)
+        assertTrue(resumed.vote(resumed.currentMatch!!, "a"))
+        assertTrue(original.vote(original.currentMatch!!, "a"))
+        assertEquals(original.champion, resumed.champion)
+    }
+
+    @Test
+    fun `a finished bracket has no snapshot and a broken snapshot is refused`() {
+        val engine = TournamentEngine(listOf("a", "b"))
+        engine.vote(engine.currentMatch!!, "b")
+        assertNull(engine.snapshot())
+
+        val good = TournamentEngine.Snapshot(4, listOf("a", "b", "c", "d"), listOf("a"), 1, 0)
+        assertTrue(TournamentEngine.restore(good) != null)
+        assertNull(TournamentEngine.restore(good.copy(winners = emptyList())))   // winners must match the match index
+        assertNull(TournamentEngine.restore(good.copy(matchIndex = 2, winners = listOf("a", "c"))))
+        assertNull(TournamentEngine.restore(good.copy(pool = listOf("a"), winners = emptyList(), matchIndex = 0)))
+        assertNull(TournamentEngine.restore(good.copy(pool = listOf("a", "a", "c", "d"))))
+        assertNull(TournamentEngine.restore(good.copy(bracketSize = 2)))
+    }
 }
