@@ -82,13 +82,15 @@ fun SettingsScreen(viewModel: BabyCupViewModel) {
             }
 
             SettingsCard("정리 알림") {
-                ToggleRow("사진이 쌓이면 알려주기", viewModel.nudgeEnabled) { enable ->
+                ToggleRow("사진이 쌓이면·새 달이 되면 알려주기", viewModel.nudgeEnabled) { enable ->
                     if (enable) optIn.request() else viewModel.updateNudgeEnabled(false)
                 }
                 Caption(
-                    if (optIn.declined.value) "알림 권한과 '모든 사진' 접근이 있어야 켤 수 있어요. 휴대폰 설정 > 앱 > 베베컵에서 허용해 주세요."
+                    if (optIn.declined.value) "알림 권한이 있어야 켤 수 있어요. 휴대폰 설정 > 앱 > 베베컵에서 허용해 주세요."
                     else "확인 안 한 사진이 ${NudgePolicy.UNSORTED_THRESHOLD}장 넘게 쌓이면 하루 한 번 살펴보고, " +
-                        "${NudgePolicy.MIN_INTERVAL_DAYS}일에 한 번까지만 알려드려요. 사진 개수만 세고, 사진을 열어 보지 않아요."
+                        "${NudgePolicy.MIN_INTERVAL_DAYS}일에 한 번까지만 알려드려요. 매달 초에는 지난달 보관 사진이 2장 이상이면 " +
+                        "'이달의 월드컵'을 한 번 알려드려요. 사진 개수만 세고, 사진을 열어 보지 않아요. " +
+                        "사진 접근이 '선택한 사진만'이면 쌓인 사진은 셀 수 없어 이달의 월드컵만 알려드려요."
                 )
             }
 

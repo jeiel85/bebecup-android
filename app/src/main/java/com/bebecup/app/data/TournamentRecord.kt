@@ -11,5 +11,7 @@ data class TournamentRecord(
     val winnerUriString: String,
     val timestamp: Long = System.currentTimeMillis(),
     val totalParticipants: Int,
-    val tournamentTitle: String
+    val tournamentTitle: String,
+    /** "yyyy-MM" for a 이달의 월드컵 (photos taken that month); null for other cups. Added in DB v5. */
+    val monthKey: String? = null
 )

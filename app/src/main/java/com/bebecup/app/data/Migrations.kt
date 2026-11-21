@@ -12,6 +12,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  *  - v2: baby_photos + tournament_records (original tournament app).
  *  - v3: + AI curation tables (photo_analysis, photo_clusters, ai_curation_sessions).
  *  - v4: + photo_analysis.dHash (near-duplicate clustering).
+ *  - v5: + tournament_records.monthKey (이달의 월드컵).
  */
 
 /** v2 → v3: add the AI curation tables. Existing photos/tournaments are preserved. */
@@ -59,5 +60,12 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
     }
 }
 
+/** v4 → v5: tournament_records.monthKey marks a 이달의 월드컵; existing cups stay null. */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `tournament_records` ADD COLUMN `monthKey` TEXT")
+    }
+}
+
 /** All migrations, in order, for registration on the database builder. */
-val ALL_MIGRATIONS = arrayOf(MIGRATION_2_3, MIGRATION_3_4)
+val ALL_MIGRATIONS = arrayOf(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
