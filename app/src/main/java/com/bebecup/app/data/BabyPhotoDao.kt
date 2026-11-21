@@ -57,6 +57,12 @@ interface BabyPhotoDao {
     @Query("UPDATE baby_photos SET isInPrintCart = 0")
     suspend fun clearPrintCart()
 
+    @Query("UPDATE baby_photos SET takenDate = :takenDate WHERE id = :id")
+    suspend fun updateTakenDate(id: Int, takenDate: String)
+
+    @Query("SELECT * FROM baby_photos WHERE title = :title")
+    suspend fun getPhotosByTitle(title: String): List<BabyPhoto>
+
     @Query("DELETE FROM baby_photos WHERE uriString NOT LIKE 'content://%' AND uriString NOT LIKE 'file://%' AND uriString NOT LIKE 'http%'")
     suspend fun pruneMockPhotos()
 

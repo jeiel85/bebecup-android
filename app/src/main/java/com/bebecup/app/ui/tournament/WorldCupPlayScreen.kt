@@ -1,5 +1,7 @@
 package com.bebecup.app.ui.tournament
 
+import com.bebecup.app.ui.components.AgeBadge
+import com.bebecup.app.domain.profile.BabyAge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -103,6 +105,7 @@ fun WorldCupPlayView(viewModel: BabyCupViewModel) {
 
         Contestant(
             photo = match.left,
+            age = viewModel.ageOf(match.left),
             label = "A",
             testTag = "vote_left_candidate",
             modifier = Modifier.weight(1f),
@@ -119,6 +122,7 @@ fun WorldCupPlayView(viewModel: BabyCupViewModel) {
         }
         Contestant(
             photo = match.right,
+            age = viewModel.ageOf(match.right),
             label = "B",
             testTag = "vote_right_candidate",
             modifier = Modifier.weight(1f),
@@ -145,6 +149,7 @@ fun WorldCupPlayView(viewModel: BabyCupViewModel) {
 @Composable
 private fun Contestant(
     photo: BabyPhoto,
+    age: BabyAge?,
     label: String,
     testTag: String,
     modifier: Modifier,
@@ -171,6 +176,7 @@ private fun Contestant(
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.85f), CircleShape)
                     .padding(horizontal = 12.dp, vertical = 4.dp)
             )
+            if (age != null) AgeBadge(age, Modifier.align(Alignment.BottomStart).padding(6.dp))
         }
     }
 }

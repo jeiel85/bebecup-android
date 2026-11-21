@@ -38,6 +38,10 @@ class BabyPhotoRepository(private val babyPhotoDao: BabyPhotoDao) {
 
     suspend fun clearPrintCart() = babyPhotoDao.clearPrintCart()
 
+    suspend fun updateTakenDate(id: Int, takenDate: String) = babyPhotoDao.updateTakenDate(id, takenDate)
+
+    suspend fun getPhotosByTitle(title: String): List<BabyPhoto> = babyPhotoDao.getPhotosByTitle(title)
+
     suspend fun pruneMockPhotos() = babyPhotoDao.pruneMockPhotos()
 
     suspend fun insertTournament(record: TournamentRecord): Long = babyPhotoDao.insertTournament(record)

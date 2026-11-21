@@ -1,5 +1,6 @@
 package com.bebecup.app.ui.print
 
+import com.bebecup.app.domain.profile.BabyAge
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
@@ -111,6 +112,7 @@ fun PrintCartView(viewModel: BabyCupViewModel, cartPhotos: List<BabyPhoto>) {
             items(cartPhotos, key = { it.id }) { photo ->
                 PrintItemCard(
                     photo = photo,
+                    age = viewModel.ageOf(photo),
                     onSize = { viewModel.updatePrintCartItem(photo, it, photo.printQuantity) },
                     onQuantity = { viewModel.updatePrintCartItem(photo, photo.printSize, it) },
                     onRemove = { viewModel.removeFromPrintCart(photo) }
@@ -205,6 +207,7 @@ fun PrintCartView(viewModel: BabyCupViewModel, cartPhotos: List<BabyPhoto>) {
 @Composable
 private fun PrintItemCard(
     photo: BabyPhoto,
+    age: BabyAge?,
     onSize: (String) -> Unit,
     onQuantity: (Int) -> Unit,
     onRemove: () -> Unit
@@ -217,6 +220,15 @@ private fun PrintItemCard(
             BabyPhotoIllustration(photo.uriString, Modifier.size(84.dp))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (age != null) {
+                    Text(
+                        age.longLabel,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.testTag("print_item_age")
+                    )
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     PRINT_SIZES.forEach { size ->
                         val selected = size == photo.printSize

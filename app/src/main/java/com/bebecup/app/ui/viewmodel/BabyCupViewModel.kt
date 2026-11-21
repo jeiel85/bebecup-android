@@ -27,6 +27,8 @@ import com.bebecup.app.data.media.PhotoMetadataReader
 import com.bebecup.app.data.prefs.BebecupPrefs
 import com.bebecup.app.domain.model.ShortlistItem
 import com.bebecup.app.domain.nudge.NudgePolicy
+import com.bebecup.app.domain.profile.BabyAge
+import com.bebecup.app.domain.profile.CalendarDate
 import com.bebecup.app.domain.tournament.TournamentEngine
 import com.bebecup.app.domain.usecase.AnalyzePhotoQualityUseCase
 import com.bebecup.app.domain.usecase.BuildAiShortlistUseCase
@@ -89,6 +91,7 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
     private val buildRejectedList: BuildRejectedListUseCase
     private val comparePicks = CompareParentPickWithAiPickUseCase()
     private val faceModelInstaller = FaceModelInstaller(application)
+    private val metadataReader = PhotoMetadataReader(application)
 
     val bestPhotos: StateFlow<List<BabyPhoto>>
     val printCartPhotos: StateFlow<List<BabyPhoto>>
@@ -125,6 +128,16 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
     var aiSimilarOnly by mutableStateOf(prefs.similarOnly)
         private set
     var aiExcludeBlurry by mutableStateOf(prefs.excludeBlurry)
+        private set
+
+    // ---------------- Baby profile (on this device only) ----------------
+
+    var babyName by mutableStateOf(prefs.babyName)
+        private set
+    /** "yyyy-MM-dd", or "" when the parent has not given it. */
+    var babyBirthDate by mutableStateOf(prefs.babyBirthDate)
+        private set
+    var babyProfilePromptDismissed by mutableStateOf(prefs.babyProfilePromptDismissed)
         private set
 
     // ---------------- Curation round (transient) ----------------
@@ -177,7 +190,7 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
             clusterDao = database.photoClusterDao(),
             sessionDao = database.aiCurationSessionDao()
         )
-        val photoQualityAnalyzer = PhotoQualityAnalyzer(PhotoMetadataReader(application), FaceQualityAnalyzer())
+        val photoQualityAnalyzer = PhotoQualityAnalyzer(metadataReader, FaceQualityAnalyzer())
         scanRecentPhotos = ScanRecentBabyPhotosUseCase(repository, mediaSource)
         analyzePhotoQuality = AnalyzePhotoQualityUseCase(aiRepository, photoQualityAnalyzer)
         clusterDuplicates = ClusterDuplicatesUseCase(aiRepository)
@@ -190,6 +203,8 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
         bestPhotos = repository.bestPhotos.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
         printCartPhotos = repository.printCartPhotos.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
         tournaments = repository.allTournaments.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+        fixPickedPhotoDates()
     }
 
     // ================= Navigation =================
@@ -281,6 +296,35 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
 
     fun daysSinceReview(): Long? =
         NudgePolicy.daysSinceReview(lastReviewedAtMillis, System.currentTimeMillis())
+
+    // ================= 아기 정보 =================
+
+    /**
+     * Save the baby's name ("" to leave it out) and birthday ("yyyy-MM-dd",
+     * or null to clear it). Both stay in this app's private storage.
+     */
+    fun updateBabyProfile(name: String, birthDate: String?) {
+        val trimmed = name.trim().take(MAX_BABY_NAME)
+        val birth = CalendarDate.parse(birthDate)?.toString() ?: ""
+        prefs.babyName = trimmed
+        prefs.babyBirthDate = birth
+        babyName = trimmed
+        babyBirthDate = birth
+    }
+
+    fun dismissBabyProfilePrompt() {
+        prefs.babyProfilePromptDismissed = true
+        babyProfilePromptDismissed = true
+    }
+
+    /** How old the baby was in [photo]; null without a birthday or for photos before it. */
+    fun ageOf(photo: BabyPhoto): BabyAge? = BabyAge.on(babyBirthDate, photo.takenDate)
+
+    /** How old the baby is today; null without a birthday. */
+    fun ageToday(): BabyAge? = BabyAge.on(
+        babyBirthDate,
+        SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Date())
+    )
 
     // ================= ① 정리하기 (AI curation) =================
 
@@ -491,7 +535,7 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
         val app = getApplication<Application>()
         viewModelScope.launch {
             val ids = mutableListOf<Int>()
-            val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+            val today = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Date())
             uris.forEach { uri ->
                 try {
                     app.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -503,10 +547,31 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
                 val uriString = uri.toString()
                 val existing = repository.getPhotoByUri(uriString)
                 ids += existing?.id ?: repository.insertPhoto(
-                    BabyPhoto(uriString = uriString, title = "직접 고른 사진", description = "", takenDate = today)
+                    BabyPhoto(
+                        uriString = uriString,
+                        title = PICKED_PHOTO_TITLE,
+                        description = "",
+                        takenDate = metadataReader.readTakenDate(uri) ?: today
+                    )
                 ).toInt()
             }
             repository.markBest(ids, System.currentTimeMillis())
+        }
+    }
+
+    /**
+     * Photos picked by hand before v0.8 were stored with the day they were
+     * picked. Re-read their capture date once so ages come out right; a photo
+     * that can no longer be opened keeps its old date.
+     */
+    private fun fixPickedPhotoDates() {
+        if (prefs.pickedPhotoDatesFixed) return
+        viewModelScope.launch {
+            repository.getPhotosByTitle(PICKED_PHOTO_TITLE).forEach { photo ->
+                val taken = metadataReader.readTakenDate(Uri.parse(photo.uriString))
+                if (taken != null && taken != photo.takenDate) repository.updateTakenDate(photo.id, taken)
+            }
+            prefs.pickedPhotoDatesFixed = true
         }
     }
 
@@ -595,6 +660,10 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
     companion object {
         private const val TAG = "BabyCupViewModel"
         private const val DAY_MILLIS = 24L * 60L * 60L * 1000L
+        private const val MAX_BABY_NAME = 20
+
+        /** Title of photos the parent added by hand with the Photo Picker. */
+        const val PICKED_PHOTO_TITLE = "직접 고른 사진"
 
         const val STEP_FACE_MODEL = "얼굴 인식 기능을 준비하는 중이에요"
         const val STEP_SCAN = "베베컵이 최근 사진을 찾는 중이에요"

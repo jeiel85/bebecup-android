@@ -31,6 +31,10 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -43,6 +47,7 @@ import com.bebecup.app.R
 import com.bebecup.app.data.BabyPhoto
 import com.bebecup.app.data.TournamentRecord
 import com.bebecup.app.ui.components.BabyPhotoIllustration
+import com.bebecup.app.ui.components.BabyProfileDialog
 import com.bebecup.app.ui.components.Illustration
 import com.bebecup.app.ui.components.UpdateBannerContent
 import com.bebecup.app.ui.components.rememberStoreUpdate
@@ -64,6 +69,8 @@ fun DashboardView(
 ) {
     val context = LocalContext.current
     val storeUpdate = rememberStoreUpdate()
+    var editingProfile by remember { mutableStateOf(false) }
+    val ageToday = viewModel.ageToday()
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -74,7 +81,15 @@ fun DashboardView(
         if (storeUpdate != null) {
             item { UpdateBannerContent(onClick = { StoreUpdates.openStore(context) }) }
         }
-        item { HomeHeader(onSettings = { viewModel.navigateTo(UiScreen.Settings) }) }
+        item {
+            HomeHeader(
+                ageLine = ageToday?.let { age ->
+                    val who = viewModel.babyName.ifBlank { "우리 아기" }
+                    "오늘 $who ${age.longLabel}"
+                },
+                onSettings = { viewModel.navigateTo(UiScreen.Settings) }
+            )
+        }
         item { NudgeHeroCard(viewModel) }
         item {
             JourneyRow(
@@ -85,6 +100,14 @@ fun DashboardView(
                 onCup = { viewModel.navigateTo(UiScreen.WorldCupSetup) },
                 onPrint = { viewModel.navigateTo(UiScreen.PrintCart) }
             )
+        }
+        if (viewModel.babyBirthDate.isBlank() && !viewModel.babyProfilePromptDismissed && bestPhotos.isNotEmpty()) {
+            item {
+                BabyProfilePromptCard(
+                    onEnter = { editingProfile = true },
+                    onLater = { viewModel.dismissBabyProfilePrompt() }
+                )
+            }
         }
         item { BestBoxPreview(bestPhotos, onOpen = { viewModel.navigateTo(UiScreen.BestBox) }) }
         item {
@@ -120,10 +143,49 @@ fun DashboardView(
             }
         }
     }
+
+    if (editingProfile) {
+        BabyProfileDialog(
+            initialName = viewModel.babyName,
+            initialBirthDate = viewModel.babyBirthDate,
+            onSave = { name, birthDate ->
+                viewModel.updateBabyProfile(name, birthDate)
+                editingProfile = false
+            },
+            onDismiss = { editingProfile = false }
+        )
+    }
 }
 
 @Composable
-private fun HomeHeader(onSettings: () -> Unit) {
+private fun BabyProfilePromptCard(onEnter: () -> Unit, onLater: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("baby_profile_prompt"),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("🎂 아기 생일을 알려 주세요", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "사진마다 몇 개월 때인지 보여 드려요. 생일은 이 기기 안에만 저장돼요.",
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+            )
+            Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                TextButton(onClick = onLater) { Text("다음에") }
+                TextButton(onClick = onEnter, modifier = Modifier.testTag("baby_profile_prompt_enter")) {
+                    Text("입력하기", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeHeader(ageLine: String?, onSettings: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.weight(1f)) {
             Text(
@@ -133,9 +195,10 @@ private fun HomeHeader(onSettings: () -> Unit) {
                 color = MaterialTheme.colorScheme.primary
             )
             Text(
-                "쌓인 아기 사진, 베스트만 골라 두기",
+                ageLine ?: "쌓인 아기 사진, 베스트만 골라 두기",
                 fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                modifier = Modifier.testTag("home_subtitle")
             )
         }
         IconButton(

@@ -47,6 +47,26 @@ class BebecupPrefs(context: Context) {
         get() = prefs.getLong(KEY_LAST_NUDGE, 0L)
         set(value) = prefs.edit().putLong(KEY_LAST_NUDGE, value).apply()
 
+    /** The baby's name as the parent typed it; "" when not given. Stays on this device. */
+    var babyName: String
+        get() = prefs.getString(KEY_BABY_NAME, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_BABY_NAME, value).apply()
+
+    /** The baby's birthday as "yyyy-MM-dd"; "" when not given. Stays on this device. */
+    var babyBirthDate: String
+        get() = prefs.getString(KEY_BABY_BIRTH_DATE, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_BABY_BIRTH_DATE, value).apply()
+
+    /** The parent tapped "다음에" on the home card asking for the birthday. */
+    var babyProfilePromptDismissed: Boolean
+        get() = prefs.getBoolean(KEY_BABY_PROMPT_DISMISSED, false)
+        set(value) = prefs.edit().putBoolean(KEY_BABY_PROMPT_DISMISSED, value).apply()
+
+    /** Hand-picked photos saved before v0.8 got the pick day as their date; set once they are re-read. */
+    var pickedPhotoDatesFixed: Boolean
+        get() = prefs.getBoolean(KEY_PICKED_DATES_FIXED, false)
+        set(value) = prefs.edit().putBoolean(KEY_PICKED_DATES_FIXED, value).apply()
+
     companion object {
         const val SCAN_SINCE_LAST_REVIEW = 0
 
@@ -60,5 +80,9 @@ class BebecupPrefs(context: Context) {
         private const val KEY_NUDGE_ENABLED = "nudge_enabled"
         private const val KEY_LAST_REVIEWED = "last_reviewed_at"
         private const val KEY_LAST_NUDGE = "last_nudge_at"
+        private const val KEY_BABY_NAME = "baby_name"
+        private const val KEY_BABY_BIRTH_DATE = "baby_birth_date"
+        private const val KEY_BABY_PROMPT_DISMISSED = "baby_profile_prompt_dismissed"
+        private const val KEY_PICKED_DATES_FIXED = "picked_photo_dates_fixed"
     }
 }
