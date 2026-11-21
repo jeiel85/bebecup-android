@@ -6,7 +6,13 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.media.ExifInterface
 import android.net.Uri
+import android.provider.MediaStore
 import android.util.Log
+import com.bebecup.app.domain.profile.CalendarDate
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -40,6 +46,38 @@ class PhotoMetadataReader(private val context: Context) {
 
             applyOrientation(decoded, readExifOrientation(uri))
         }
+
+    /**
+     * The day [uri] was taken, "yyyy-MM-dd": the EXIF capture date first (the
+     * camera's local date), then the provider's DATE_TAKEN column. Null when
+     * neither is known.
+     */
+    suspend fun readTakenDate(uri: Uri): String? = withContext(Dispatchers.IO) {
+        exifTakenDate(uri) ?: providerTakenDate(uri)
+    }
+
+    private fun exifTakenDate(uri: Uri): String? = try {
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            val exif = ExifInterface(input)
+            TakenDates.fromExif(exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL))
+                ?: TakenDates.fromExif(exif.getAttribute(ExifInterface.TAG_DATETIME))
+        }
+    } catch (e: Exception) {
+        Log.w(TAG, "EXIF date unreadable for $uri", e)
+        null
+    }
+
+    private fun providerTakenDate(uri: Uri): String? = try {
+        context.contentResolver.query(uri, arrayOf(MediaStore.Images.ImageColumns.DATE_TAKEN), null, null, null)
+            ?.use { cursor ->
+                if (!cursor.moveToFirst() || cursor.isNull(0)) null
+                else TakenDates.fromMillis(cursor.getLong(0))
+            }
+    } catch (e: Exception) {
+        // Not every provider (e.g. a document provider) knows this column.
+        Log.w(TAG, "DATE_TAKEN unavailable for $uri", e)
+        null
+    }
 
     private fun readBounds(uri: Uri): Pair<Int, Int>? {
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -90,6 +128,23 @@ class PhotoMetadataReader(private val context: Context) {
         private const val TAG = "PhotoMetadataReader"
         const val MAX_SIDE_ANALYSIS = 512
         const val MAX_SIDE_EMBEDDING = 224
+    }
+}
+
+/** Turns capture times into the "yyyy-MM-dd" dates photos are stored with. */
+object TakenDates {
+
+    /** "2026:05:20 14:03:11" (EXIF) → "2026-05-20"; null for blanks and the all-zero placeholder. */
+    fun fromExif(value: String?): String? {
+        val datePart = value?.trim()?.take(10) ?: return null
+        val candidate = datePart.replace(':', '-')
+        return CalendarDate.parse(candidate)?.toString()
+    }
+
+    fun fromMillis(millis: Long, zone: TimeZone = TimeZone.getDefault()): String? {
+        if (millis <= 0L) return null
+        val format = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply { timeZone = zone }
+        return format.format(Date(millis))
     }
 }
 

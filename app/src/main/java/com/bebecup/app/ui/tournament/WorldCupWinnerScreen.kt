@@ -74,6 +74,15 @@ fun WorldCupWinnerCelebrationView(
                 )
             }
         }
+        viewModel.ageOf(winner)?.let { age ->
+            Text(
+                "${age.longLabel} 때 사진",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.testTag("winner_age")
+            )
+        }
         Text(
             "우리 가족이 뽑은 최고의 순간이에요",
             fontSize = 15.sp,

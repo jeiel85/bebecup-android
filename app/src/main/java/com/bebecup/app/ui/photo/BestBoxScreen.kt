@@ -1,5 +1,7 @@
 package com.bebecup.app.ui.photo
 
+import com.bebecup.app.ui.components.AgeBadge
+import com.bebecup.app.domain.profile.BabyAge
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -130,6 +132,7 @@ fun BestBoxScreen(
                 items(bestPhotos, key = { it.id }) { photo ->
                     BestTile(
                         photo = photo,
+                        age = viewModel.ageOf(photo),
                         inPrintCart = photo.id in printIds,
                         onAddToPrint = { viewModel.addToPrintCart(photo) },
                         onRemove = { viewModel.removeFromBest(photo) }
@@ -143,6 +146,7 @@ fun BestBoxScreen(
 @Composable
 private fun BestTile(
     photo: BabyPhoto,
+    age: BabyAge?,
     inPrintCart: Boolean,
     onAddToPrint: () -> Unit,
     onRemove: () -> Unit
@@ -168,6 +172,7 @@ private fun BestTile(
                     .padding(horizontal = 6.dp, vertical = 2.dp)
             )
         }
+        if (age != null) AgeBadge(age, Modifier.align(Alignment.BottomStart))
         Box(
             Modifier
                 .align(Alignment.BottomEnd)

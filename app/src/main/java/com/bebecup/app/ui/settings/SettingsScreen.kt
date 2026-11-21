@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bebecup.app.BuildConfig
 import com.bebecup.app.domain.nudge.NudgePolicy
+import com.bebecup.app.domain.profile.CalendarDate
+import com.bebecup.app.ui.components.BabyProfileDialog
 import com.bebecup.app.ui.ai.ToggleRow
 import com.bebecup.app.ui.components.ScreenHeader
 import com.bebecup.app.ui.components.rememberNudgeOptIn
@@ -37,6 +39,7 @@ import com.bebecup.app.ui.viewmodel.BabyCupViewModel
 fun SettingsScreen(viewModel: BabyCupViewModel) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var deleted by remember { mutableStateOf(false) }
+    var editingProfile by remember { mutableStateOf(false) }
     val optIn = rememberNudgeOptIn(viewModel)
 
     Column(
@@ -51,6 +54,33 @@ fun SettingsScreen(viewModel: BabyCupViewModel) {
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            SettingsCard("아기 정보") {
+                val birth = CalendarDate.parse(viewModel.babyBirthDate)
+                Caption(
+                    if (birth == null) "생일을 알려 주시면 보관함·월드컵·인화함 사진마다 몇 개월 때인지 보여 드려요."
+                    else buildString {
+                        if (viewModel.babyName.isNotBlank()) append("${viewModel.babyName} · ")
+                        append("${birth.year}년 ${birth.month}월 ${birth.day}일생")
+                        viewModel.ageToday()?.let { append(" · 오늘 ${it.longLabel}") }
+                    }
+                )
+                OutlinedButton(
+                    onClick = { editingProfile = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp)
+                        .testTag("settings_baby_profile_btn"),
+                    shape = RoundedCornerShape(14.dp)
+                ) { Text(if (birth == null) "아기 정보 입력" else "아기 정보 고치기", fontSize = 13.sp) }
+                if (birth != null) {
+                    TextButton(
+                        onClick = { viewModel.updateBabyProfile("", null) },
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    ) { Text("아기 정보 지우기", fontSize = 12.sp) }
+                }
+                Caption("이 기기 안에만 저장되고, 휴대폰의 Google 백업에 다른 앱 데이터와 함께 포함될 수 있어요.")
+            }
+
             SettingsCard("정리 알림") {
                 ToggleRow("사진이 쌓이면 알려주기", viewModel.nudgeEnabled) { enable ->
                     if (enable) optIn.request() else viewModel.updateNudgeEnabled(false)
@@ -90,6 +120,18 @@ fun SettingsScreen(viewModel: BabyCupViewModel) {
                 modifier = Modifier.padding(8.dp)
             )
         }
+    }
+
+    if (editingProfile) {
+        BabyProfileDialog(
+            initialName = viewModel.babyName,
+            initialBirthDate = viewModel.babyBirthDate,
+            onSave = { name, birthDate ->
+                viewModel.updateBabyProfile(name, birthDate)
+                editingProfile = false
+            },
+            onDismiss = { editingProfile = false }
+        )
     }
 
     if (showDeleteConfirm) {
