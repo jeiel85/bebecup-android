@@ -14,6 +14,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ApplicationProvider
 import com.bebecup.app.data.AppDatabase
 import com.bebecup.app.data.BabyPhoto
+import com.bebecup.app.data.TournamentRecord
 import com.bebecup.app.data.prefs.BebecupPrefs
 import com.bebecup.app.domain.monthly.MonthlyCup
 import com.bebecup.app.domain.profile.CalendarDate
@@ -21,6 +22,7 @@ import com.bebecup.app.nudge.NudgeNotifier
 import com.bebecup.app.ui.theme.MyApplicationTheme
 import com.bebecup.app.ui.viewmodel.BabyCupViewModel
 import com.bebecup.app.ui.viewmodel.UiScreen
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -43,12 +45,14 @@ class MonthlyCupFlowTest {
     private val dao get() = AppDatabase.getDatabase(context).babyPhotoDao()
     private lateinit var viewModel: BabyCupViewModel
 
-    /** Relative to the real today, because the view model uses the device calendar. */
-    private val lastMonth = MonthlyCup.previousMonth(MonthlyCup.today())
-    private val olderMonth = MonthlyCup.previousMonth(CalendarDate.parse("$lastMonth-01")!!)
+    /** The calendar is pinned, so these hold whatever day the test runs. */
+    private val today = CalendarDate(2026, 11, 21)
+    private val lastMonth = "2026-10"
+    private val olderMonth = "2026-09"
 
     @Before
     fun setUp() {
+        MonthlyCup.clock = { today }
         context.getSharedPreferences("bebecup_prefs", Context.MODE_PRIVATE).edit().clear().commit()
         viewModel = BabyCupViewModel(ApplicationProvider.getApplicationContext())
         viewModel.completeOnboarding()
@@ -56,6 +60,7 @@ class MonthlyCupFlowTest {
 
     @After
     fun tearDown() {
+        MonthlyCup.clock = MonthlyCup::deviceToday
         Thread { AppDatabase.getDatabase(context).clearAllTables() }.apply { start(); join() }
     }
 
@@ -130,6 +135,24 @@ class MonthlyCupFlowTest {
         seedBest("$lastMonth-01", "$olderMonth-01", "$olderMonth-02")
         showHome()
         assertEquals(0, compose.onAllNodesWithTag("monthly_cup_card").fetchSemanticsNodes().size)
+    }
+
+    @Test
+    fun `a month played twice keeps one month's photo in the hall`() {
+        fun cup(at: Long) = TournamentRecord(
+            winnerPhotoId = 1, winnerTitle = "사진", winnerUriString = "content://test/1",
+            timestamp = at, totalParticipants = 4, tournamentTitle = "2026년 10월의 월드컵", monthKey = lastMonth
+        )
+        val first = runBlocking { dao.insertTournament(cup(at = 1_000L)) }.toInt()
+        val again = runBlocking { dao.insertTournament(cup(at = 2_000L)) }.toInt()
+        showHome()
+        compose.runOnIdle { viewModel.navigateTo(UiScreen.TournamentHistoryList) }
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("cup_title_$again").assertTextContains("2026년 10월의 사진", substring = true)
+        compose.onNodeWithTag("cup_title_$first").assertTextContains("👑 4강 우승")
+        // Still decided: no home card for last month.
+        assertEquals(null, viewModel.pendingMonthlyCup(emptyList(), runBlocking { dao.getAllTournaments().first() }))
     }
 
     @Test

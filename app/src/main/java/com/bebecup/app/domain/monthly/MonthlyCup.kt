@@ -1,5 +1,6 @@
 package com.bebecup.app.domain.monthly
 
+import androidx.annotation.VisibleForTesting
 import com.bebecup.app.domain.profile.CalendarDate
 import java.util.Calendar
 import java.util.Locale
@@ -66,8 +67,31 @@ object MonthlyCup {
         return months(takenDates).firstOrNull { it.key == key }
     }
 
+    /**
+     * The cups that hold their month's title. A month can be played again
+     * (from the setup screen or a late reminder); the latest cup is that
+     * month's photo, and earlier ones stay in the hall as ordinary wins.
+     */
+    fun <T> titleHolders(cups: List<T>, monthKey: (T) -> String?, timestamp: (T) -> Long): Set<T> =
+        cups.filter { monthKey(it) != null }
+            .groupBy { monthKey(it) }
+            .values
+            .map { sameMonth -> sameMonth.maxBy(timestamp) }
+            .toSet()
+
+    /**
+     * Where [today] reads the date. Tests pin it so the month rules don't
+     * depend on the day they run (a run across midnight at a month's end
+     * would otherwise see two different "last months").
+     */
+    @VisibleForTesting
+    internal var clock: () -> CalendarDate = ::deviceToday
+
     /** Today on this device's calendar. */
-    fun today(): CalendarDate {
+    fun today(): CalendarDate = clock()
+
+    /** The device calendar's today; the default [clock]. */
+    internal fun deviceToday(): CalendarDate {
         val now = Calendar.getInstance()
         return CalendarDate(now.get(Calendar.YEAR), now.get(Calendar.MONTH) + 1, now.get(Calendar.DAY_OF_MONTH))
     }
