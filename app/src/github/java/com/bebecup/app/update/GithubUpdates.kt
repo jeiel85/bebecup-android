@@ -10,6 +10,7 @@ import android.util.Log
 import androidx.core.content.FileProvider
 import com.bebecup.app.BuildConfig
 import com.bebecup.app.data.prefs.BebecupPrefs
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -93,7 +94,14 @@ object GithubUpdates {
         if (busy()) return
         val before = _status.value
         if (userAsked) _status.value = UpdateStatus.Checking
-        val manifest = withContext(Dispatchers.IO) { fetchManifest() }
+        val manifest = try {
+            withContext(Dispatchers.IO) { fetchManifest() }
+        } catch (e: CancellationException) {
+            // The screen that asked went away (설정 closed, rotation): don't leave
+            // "Checking" behind, or busy() would block every later check.
+            if (_status.value == UpdateStatus.Checking) _status.value = before
+            throw e
+        }
         if (manifest == null) {
             _status.value = if (userAsked) {
                 UpdateStatus.CheckFailed("GitHub에서 새 버전을 확인하지 못했어요. 인터넷 연결을 확인해 주세요.")

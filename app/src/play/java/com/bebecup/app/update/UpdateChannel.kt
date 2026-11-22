@@ -12,6 +12,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.bebecup.app.BuildConfig
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /** Play build: the home update banner backed by [StoreUpdates]. */
@@ -72,8 +73,15 @@ object UpdateChannel {
     }
 
     suspend fun checkNow(context: Context) {
+        val before = manual.value
         manual.value = UpdateStatus.Checking
-        val answer = StoreUpdates.checkNow(context)
+        val answer = try {
+            StoreUpdates.checkNow(context)
+        } catch (e: CancellationException) {
+            // 설정 closed (or rotated) mid-check: don't leave the button stuck on "Checking".
+            if (manual.value == UpdateStatus.Checking) manual.value = before
+            throw e
+        }
         manual.value = when {
             answer == null -> UpdateStatus.CheckFailed(
                 "Google Play에서 확인하지 못했어요. Play 스토어에서 설치한 앱만 여기서 확인할 수 있어요."
