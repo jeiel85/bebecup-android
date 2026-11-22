@@ -7,7 +7,7 @@
 - **사진 데이터(#3·#8)**: 정리 저장 시 보관하지 않은 스캔 행 삭제(분석 행은 FK cascade), 지워진 사진(FileNotFoundException만) 알림·정리, 추천 사유를 이번 스캔의 숏리스트 규칙으로 범위 지정, `CURRENT_ANALYSIS_VERSION` 3 + 옛 버전 분석 행 삭제.
 - **날짜(#14)**: 스캔 사진도 EXIF 촬영일 우선, 날짜 문자열 `Locale.ROOT`, 날짜 보정 대상을 제목 대신 보관함·인화함 전체로(새 prefs 키로 한 번 더 실행), 생일 선택을 Material 3 DatePicker로.
 - **월드컵 복원(#3)**: `TournamentEngine.Snapshot`을 사진 id 배열로 `SavedStateHandle`에 저장, 프로세스 종료 후 같은 경기로 복원. 플레이 화면을 떠나면 버림.
-- **빌드 경고(#3·#8)**: Room `fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)`, AGP `assets.directories`, 어노테이션 대상 경고, Play AAB에 네이티브 기호 표(`debugSymbolLevel`).
+- **빌드 경고(#3·#8)**: Room `fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)`, AGP `assets.directories`, 어노테이션 대상 경고. Play AAB 네이티브 기호(`debugSymbolLevel`)는 넣어 봤으나 유일한 네이티브 라이브러리(`libandroidx.graphics.path.so`)가 기호 없이 배포돼 AAB에 아무것도 들어가지 않음을 v0.10.0 AAB로 확인하고 설정을 뺐다(Play 경고는 남음).
 - **개인정보(#8·#15)**: ML Kit 지표 전송을 끄지 않고 방침·README·랜딩·설정 문구를 사실대로 고침(`DECISIONS.md`). Play 데이터 보안 양식은 사용자가 고칠 몫.
 - **이월**: 형제자매(다자녀) 지원, 넛지의 아기 사진 판별 → `BACKLOG.md`.
 - **릴리스**: v0.10.0(versionCode 11)으로 GitHub 릴리스와 Play 비공개 테스트 - Alpha에 함께 올림. 채널 분리 후 첫 릴리스라 GitHub APK는 새 키로 서명됨.
