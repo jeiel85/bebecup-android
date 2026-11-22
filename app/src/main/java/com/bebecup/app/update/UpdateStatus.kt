@@ -30,6 +30,16 @@ val UpdateStatus.offersUpdate: Boolean
     get() = this is UpdateStatus.Available || this is UpdateStatus.Downloading ||
         this is UpdateStatus.ReadyToInstall || this is UpdateStatus.DownloadFailed
 
+/** The version on offer, when this state knows it (the Play build never does). */
+val UpdateStatus.versionName: String?
+    get() = when (this) {
+        is UpdateStatus.Available -> versionName
+        is UpdateStatus.Downloading -> versionName
+        is UpdateStatus.ReadyToInstall -> versionName
+        is UpdateStatus.DownloadFailed -> versionName
+        else -> null
+    }
+
 /** When the GitHub build re-checks, free of Android calls so tests can pin it. */
 object UpdateCheckPolicy {
 

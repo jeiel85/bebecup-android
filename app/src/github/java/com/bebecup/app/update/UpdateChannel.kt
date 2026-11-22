@@ -49,7 +49,7 @@ object UpdateChannel {
             versionCode = versionCode,
             onOpen = { GithubUpdates.startUpdate(context) },
             onDismiss = { GithubUpdates.dismiss(context, versionCode) },
-            title = (status as? UpdateStatus.Available)?.versionName?.let { "새 버전 ${it}이 나왔어요" } ?: "새 버전이 나왔어요",
+            title = status.versionName?.let { "새 버전 ${it}이 나왔어요" } ?: "새 버전이 나왔어요",
             subtitle = when (status) {
                 is UpdateStatus.Downloading -> "받는 중이에요"
                 is UpdateStatus.ReadyToInstall -> "다 받았어요. 눌러서 설치하세요"
