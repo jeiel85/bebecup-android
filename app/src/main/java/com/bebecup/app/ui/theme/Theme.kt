@@ -1,58 +1,92 @@
 package com.bebecup.app.ui.theme
 
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+
+/** 설정 > 화면 테마. Light is the default: a dark system theme no longer turns BebeCup dark by itself. */
+enum class ThemeMode(val storageKey: String, val label: String) {
+    LIGHT("light", "밝게"),
+    DARK("dark", "어둡게"),
+    SYSTEM("system", "휴대폰 설정 따르기");
+
+    companion object {
+        val DEFAULT = LIGHT
+        fun fromStorageKey(key: String?): ThemeMode = entries.firstOrNull { it.storageKey == key } ?: DEFAULT
+    }
+}
+
+@Composable
+fun ThemeMode.isDark(): Boolean = when (this) {
+    ThemeMode.LIGHT -> false
+    ThemeMode.DARK -> true
+    ThemeMode.SYSTEM -> isSystemInDarkTheme()
+}
 
 private val DarkColorScheme = darkColorScheme(
     primary = NightSkyDarkPrimary,
+    onPrimary = NightSkyDarkBackground,
+    primaryContainer = NightPeachContainer,
+    onPrimaryContainer = NightText,
     secondary = NightSkyDarkPrimary,
+    onSecondary = NightSkyDarkBackground,
+    secondaryContainer = NightSandContainer,
+    onSecondaryContainer = NightText,
     tertiary = ButterGoldTertiary,
     background = NightSkyDarkBackground,
+    onBackground = NightText,
     surface = NightSkyDarkSurface,
-    onBackground = SoftCreamBackground,
-    onSurface = SoftCreamBackground,
-    onPrimary = NightSkyDarkBackground,
-    onSecondary = NightSkyDarkBackground,
-    outline = NightSkyOutline
+    onSurface = NightText,
+    surfaceVariant = NightVariant,
+    onSurfaceVariant = NightText,
+    surfaceContainerLowest = NightSkyDarkBackground,
+    surfaceContainerLow = NightSkyDarkSurface,
+    surfaceContainer = NightSkyDarkSurface,
+    surfaceContainerHigh = NightVariant,
+    surfaceContainerHighest = NightVariant,
+    outline = NightSkyOutline,
+    outlineVariant = NightSkyOutline,
 )
 
 private val LightColorScheme = lightColorScheme(
     primary = SoftPeachPrimary,
+    onPrimary = CardWhite,
+    primaryContainer = PeachContainer,
+    onPrimaryContainer = CozyBrownText,
     secondary = WarmSandSecondary,
-    tertiary = ButterGoldTertiary,
-    background = SoftCreamBackground,
-    surface = SoftCreamBackground,
-    onBackground = CozyBrownText,
-    onSurface = CozyBrownText,
-    onPrimary = SoftCreamBackground,
     onSecondary = CozyBrownText,
-    outline = OutlineWarm
+    secondaryContainer = SandContainer,
+    onSecondaryContainer = CozyBrownText,
+    tertiary = ButterGoldTertiary,
+    onTertiary = CozyBrownText,
+    tertiaryContainer = ButterContainer,
+    onTertiaryContainer = CozyBrownText,
+    background = SoftCreamBackground,
+    onBackground = CozyBrownText,
+    surface = CardWhite,
+    onSurface = CozyBrownText,
+    surfaceVariant = CreamVariant,
+    onSurfaceVariant = SoftMutedText,
+    // Material's defaults here are lavender greys; keep dialogs, menus and sheets in the cream family.
+    surfaceContainerLowest = CardWhite,
+    surfaceContainerLow = SoftCreamBackground,
+    surfaceContainer = SoftCreamBackground,
+    surfaceContainerHigh = CreamVariant,
+    surfaceContainerHighest = CreamVariant,
+    surfaceTint = SoftPeachPrimary,
+    outline = OutlineWarm,
+    outlineVariant = OutlineWarm,
 )
 
 @Composable
 fun MyApplicationTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false, // Disable default dynamic color to enforce our beautiful cohesive parenting palette!
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
         typography = Typography,
         content = content
     )

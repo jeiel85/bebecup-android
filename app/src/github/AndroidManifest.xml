@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  GitHub (sideload) build only, merged into src/main/AndroidManifest.xml. The Play
+  build has none of this: Google Play updates it.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Reads update.json from the latest GitHub Release and downloads the new APK. Nothing else goes out. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Hands the verified APK to Android's installer, which asks the parent to confirm. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+</manifest>
