@@ -241,7 +241,9 @@ jobs:
           test -s "$AAB"
           APKSIGNER="$ANDROID_HOME/build-tools/$(ls -1 "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/apksigner"
           "$APKSIGNER" verify "$APK"
-          APK_SHA="$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
+          # The prefix differs between apksigner versions ("Signer #1 ...", "Signer (minSdkVersion=...) ..."),
+          # so take the first certificate SHA-256 line whatever precedes it.
+          APK_SHA="$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/^.*certificate SHA-256 digest: //p' | head -1)"
           echo "GitHub APK signer: $APK_SHA"
           test "$APK_SHA" = "$GITHUB_APK_SHA256"
           AAB_SHA="$(keytool -printcert -jarfile "$AAB" | sed -n 's/^\s*SHA256: //p' | head -1)"
