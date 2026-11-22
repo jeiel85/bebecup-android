@@ -52,6 +52,28 @@ class MonthlyCupTest {
     }
 
     @Test
+    fun `dates written with non-latin digits still find their month`() {
+        // Kotlin's toIntOrNull reads any Unicode decimal digit, so rows saved
+        // under an Arabic-digit locale before dates were pinned to Locale.ROOT
+        // still land in their month instead of silently dropping out.
+        assertEquals("2026-10", MonthlyCup.monthKeyOf("٢٠٢٦-١٠-٠٥"))
+        assertEquals("2026-10", MonthlyCup.monthKeyOf("۲۰۲۶-۱۰-۰۵"))
+    }
+
+    @Test
+    fun `a month played twice is titled by its latest cup`() {
+        data class Cup(val id: Int, val month: String?, val at: Long)
+        val cups = listOf(
+            Cup(1, "2026-10", at = 100),
+            Cup(2, null, at = 150),
+            Cup(3, "2026-10", at = 200),
+            Cup(4, "2026-09", at = 50)
+        )
+        val holders = MonthlyCup.titleHolders(cups, { it.month }, { it.at })
+        assertEquals(setOf(3, 4), holders.map { it.id }.toSet())
+    }
+
+    @Test
     fun `january offers last december`() {
         val due = MonthlyCup.pending(CalendarDate(2027, 1, 2), listOf("2026-12-24", "2026-12-25"), emptySet(), "")
         assertEquals("2026-12", due?.key)
