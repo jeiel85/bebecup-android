@@ -167,7 +167,7 @@ jobs:
         run: |
           for f in github play; do
             SEEDS="app/build/outputs/mapping/${f}Release/seeds.txt"
-            for r in face.internal.FaceRegistrar vision.common.internal.VisionCommonRegistrar common.internal.CommonComponentRegistrar; do
+            for r in vision.face.internal.FaceRegistrar vision.common.internal.VisionCommonRegistrar common.internal.CommonComponentRegistrar; do
               NAME="${r##*.}"
               grep -qx "com.google.mlkit.$r: $NAME()" "$SEEDS" || { echo "::error::$f release: R8 dropped $NAME()"; exit 1; }
             done
@@ -246,7 +246,7 @@ jobs:
         run: |
           for f in github play; do
             SEEDS="app/build/outputs/mapping/${f}Release/seeds.txt"
-            for r in face.internal.FaceRegistrar vision.common.internal.VisionCommonRegistrar common.internal.CommonComponentRegistrar; do
+            for r in vision.face.internal.FaceRegistrar vision.common.internal.VisionCommonRegistrar common.internal.CommonComponentRegistrar; do
               NAME="${r##*.}"
               grep -qx "com.google.mlkit.$r: $NAME()" "$SEEDS" || { echo "::error::$f release: R8 dropped $NAME()"; exit 1; }
             done
