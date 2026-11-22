@@ -124,8 +124,6 @@ android {
       isMinifyEnabled = true
       isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      // Put native symbol tables in the AAB so Play can read crash and ANR stacks.
-      ndk { debugSymbolLevel = "SYMBOL_TABLE" }
     }
   }
   compileOptions {

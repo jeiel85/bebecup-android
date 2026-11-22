@@ -94,7 +94,9 @@ app/build/outputs/mapping/playRelease/mapping.txt     # Play AAB용
 app/build/outputs/mapping/githubRelease/mapping.txt   # GitHub APK용
 ```
 
-출시한 각 버전의 mapping 파일은 난독화 해제용으로 보관한다. Play AAB에는 네이티브 디버그 기호 표(`ndk.debugSymbolLevel = SYMBOL_TABLE`)도 함께 들어간다.
+출시한 각 버전의 mapping 파일은 난독화 해제용으로 보관한다.
+
+Play Console이 "네이티브 코드를 포함하며 디버그 기호가 업로드되지 않았다"고 경고하지만 출시를 막지는 않는다. 앱의 네이티브 코드는 Compose가 쓰는 `libandroidx.graphics.path.so`뿐이고, 이 라이브러리는 기호가 제거된 채 배포돼 `ndk.debugSymbolLevel`을 켜도 AAB에 기호 파일이 생기지 않는다(v0.10.0에서 확인). 직접 만든 네이티브 코드가 생기면 그때 기호를 올린다.
 
 ## Play Console Export
 
