@@ -1,0 +1,6 @@
+• The birthday calendar now matches the app's design
+• The best box and print box point out photos deleted from your gallery and let you remove them at once
+• A world cup picks up where you left off, even after switching apps
+• You can dismiss the new-version banner on home
+• Photos added from recommendations now carry their capture date
+• The privacy policy now explains the usage metrics Google ML Kit (face detection) may send. Photos still never leave your phone
