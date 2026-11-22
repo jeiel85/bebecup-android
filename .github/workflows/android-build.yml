@@ -38,7 +38,7 @@ jobs:
       - name: Run unit + integration (Robolectric) tests
         run: ./gradlew testPlayDebugUnitTest testGithubDebugUnitTest
 
-      - name: Run release script tests (Play upload)
+      - name: Run release script tests (Play upload, update.json)
         run: python3 -m unittest discover -s scripts -p "test_*.py" -v
 
       - name: Upload unit test report
@@ -159,6 +159,20 @@ jobs:
           test -s "$APK"
           ls -lh "$APK"
 
+      # R8 full mode once dropped the no-arg constructors of ML Kit's component
+      # registrars (created by reflection), so "베베컵에게 맡기기" failed in every
+      # release build v0.7.1-v0.10.0 while debug builds worked. proguard-rules.pro
+      # keeps them; this checks both channels.
+      - name: Verify R8 kept ML Kit registrar constructors
+        run: |
+          for f in github play; do
+            SEEDS="app/build/outputs/mapping/${f}Release/seeds.txt"
+            for r in vision.face.internal.FaceRegistrar vision.common.internal.VisionCommonRegistrar common.internal.CommonComponentRegistrar; do
+              NAME="${r##*.}"
+              grep -qx "com.google.mlkit.$r: $NAME()" "$SEEDS" || { echo "::error::$f release: R8 dropped $NAME()"; exit 1; }
+            done
+          done
+
       - name: Upload R8 mapping artifact (build job)
         uses: actions/upload-artifact@v7
         with:
@@ -228,6 +242,16 @@ jobs:
           ORG_GRADLE_PROJECT_bebecup.requireReleaseSigning: "true"
         run: ./gradlew :app:assembleGithubRelease :app:bundlePlayRelease
 
+      - name: Verify R8 kept ML Kit registrar constructors
+        run: |
+          for f in github play; do
+            SEEDS="app/build/outputs/mapping/${f}Release/seeds.txt"
+            for r in vision.face.internal.FaceRegistrar vision.common.internal.VisionCommonRegistrar common.internal.CommonComponentRegistrar; do
+              NAME="${r##*.}"
+              grep -qx "com.google.mlkit.$r: $NAME()" "$SEEDS" || { echo "::error::$f release: R8 dropped $NAME()"; exit 1; }
+            done
+          done
+
       # Public certificate fingerprints, so a swapped secret cannot ship a
       # wrongly signed build (docs/RELEASE.md).
       - name: Verify release signing certificates
@@ -257,6 +281,19 @@ jobs:
           test -s "$MAPPING"
           cp "$MAPPING" "bebecup-${GITHUB_REF_NAME}.mapping.txt"
           ls -lh "bebecup-${GITHUB_REF_NAME}.apk" "bebecup-${GITHUB_REF_NAME}.mapping.txt"
+
+      # Read by the GitHub build's updater (GithubUpdateManifest): it fetches
+      # releases/latest/download/update.json and builds the APK URL itself from
+      # this repository, "v" + versionName and "apk", so versionName must equal the tag.
+      - name: Prepare update.json
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          NAME="$(sed -n 's/^ *versionName = "\(.*\)".*/\1/p' app/build.gradle.kts | head -1)"
+          CODE="$(sed -n 's/^ *versionCode = \([0-9]*\).*/\1/p' app/build.gradle.kts | head -1)"
+          [ "$NAME" = "$VERSION" ] || { echo "::error::versionName $NAME does not match tag $GITHUB_REF_NAME"; exit 1; }
+          test -n "$CODE"
+          python3 scripts/update_manifest.py "$CODE" "$VERSION" "bebecup-${GITHUB_REF_NAME}.apk" update.json
+          cat update.json
 
       - name: Upload Play Console AAB artifact
         uses: actions/upload-artifact@v7
@@ -303,6 +340,7 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             "bebecup-${GITHUB_REF_NAME}.apk" \
             "bebecup-${GITHUB_REF_NAME}.mapping.txt" \
+            update.json \
             --repo "$GITHUB_REPOSITORY" \
             --title "$(cat release-title.txt)" \
             --notes-file release-notes.md

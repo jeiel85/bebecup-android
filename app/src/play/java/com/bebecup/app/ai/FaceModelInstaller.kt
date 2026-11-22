@@ -26,6 +26,9 @@ import kotlin.coroutines.resume
  */
 class FaceModelInstaller(context: Context) {
 
+    /** The model comes from Play services; 설정 offers to fetch it ahead of the first scan. */
+    val bundled = false
+
     private val appContext = context.applicationContext
     private val client by lazy { ModuleInstall.getClient(appContext) }
 
@@ -42,6 +45,25 @@ class FaceModelInstaller(context: Context) {
         } catch (e: Exception) {
             // No Play services (or not yet ready): the first scan asks again.
             Log.w(TAG, "face model request failed", e)
+        }
+    }
+
+    /**
+     * Whether the face model is already on this device, without downloading
+     * it (설정 shows this). Null when Play services could not say (missing,
+     * outdated or not ready).
+     */
+    suspend fun isInstalled(): Boolean? {
+        val api = try {
+            faceApi()
+        } catch (e: Exception) {
+            Log.w(TAG, "face detector unavailable", e)
+            return null
+        }
+        return try {
+            awaitOrNull(client.areModulesAvailable(api))?.areModulesAvailable()
+        } finally {
+            api.close()
         }
     }
 

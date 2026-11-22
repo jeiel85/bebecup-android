@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  GitHub (sideload) build only, merged into src/main/AndroidManifest.xml. The Play
+  build has none of this: Google Play updates it.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Reads update.json from the latest GitHub Release and downloads the new APK. Nothing else goes out. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Hands the verified APK to Android's installer (a PackageInstaller session). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Android 12+: once BebeCup installed itself, later updates may go through without a confirmation. -->
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
+    <!-- Android 14+: become the update owner, so another installer must ask before replacing BebeCup. -->
+    <uses-permission android:name="android.permission.ENFORCE_UPDATE_OWNERSHIP" />
+
+    <application>
+        <!-- Install-session results, and "this app was just replaced" (update/UpdateWorker.kt). -->
+        <receiver
+            android:name=".update.UpdateInstallReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

@@ -1,0 +1,5 @@
+• Fixed automatic photo picking (베베컵에게 맡기기) stopping while it looked at your photos
+• The app now opens in a light theme even when your phone is in dark mode. Choose light, dark or follow phone in Settings
+• Settings shows whether face detection is ready and lets you download it ahead of time
+• Check for a new version right from Settings
+• Replaying a month's world cup now keeps a single "photo of the month"

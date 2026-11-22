@@ -2,6 +2,7 @@ package com.bebecup.app.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -13,16 +14,24 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,7 +42,13 @@ import com.bebecup.app.ui.components.BabyProfileDialog
 import com.bebecup.app.ui.ai.ToggleRow
 import com.bebecup.app.ui.components.ScreenHeader
 import com.bebecup.app.ui.components.rememberNudgeOptIn
+import com.bebecup.app.ui.theme.ThemeMode
 import com.bebecup.app.ui.viewmodel.BabyCupViewModel
+import com.bebecup.app.ui.viewmodel.FaceModelState
+import com.bebecup.app.update.UpdateChannel
+import com.bebecup.app.update.UpdateStatus
+import com.bebecup.app.update.VersionParticles
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(viewModel: BabyCupViewModel) {
@@ -102,6 +117,14 @@ fun SettingsScreen(viewModel: BabyCupViewModel) {
                 ToggleRow("흔들린 사진은 추천에서 빼기", viewModel.aiExcludeBlurry) { viewModel.updateExcludeBlurry(it) }
             }
 
+            SettingsCard("화면 테마") {
+                ThemeModeRow(viewModel.themeMode) { viewModel.updateThemeMode(it) }
+            }
+
+            FaceModelCard(viewModel)
+
+            AppUpdateCard()
+
             SettingsCard("개인정보") {
                 Caption(
                     "사진 분석은 모두 이 기기 안에서만 해요. 사진과 분석 결과는 밖으로 나가지 않고, 광고·추적 도구도 쓰지 않아요. " +
@@ -119,7 +142,7 @@ fun SettingsScreen(viewModel: BabyCupViewModel) {
             }
 
             Text(
-                "베베컵 ${BuildConfig.VERSION_NAME}",
+                "베베컵 ${BuildConfig.VERSION_NAME} · ${UpdateChannel.LABEL} 배포본",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                 modifier = Modifier.padding(8.dp)
@@ -153,6 +176,166 @@ fun SettingsScreen(viewModel: BabyCupViewModel) {
             },
             dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text("취소") } }
         )
+    }
+}
+
+@Composable
+private fun ThemeModeRow(selected: ThemeMode, onSelect: (ThemeMode) -> Unit) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp)
+    ) {
+        ThemeMode.entries.forEach { mode ->
+            val isSelected = mode == selected
+            Surface(
+                onClick = { onSelect(mode) },
+                shape = RoundedCornerShape(14.dp),
+                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer,
+                contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier
+                    .weight(1f)
+                    .semantics { this.selected = isSelected }
+                    .testTag("settings_theme_${mode.storageKey}")
+            ) {
+                Text(
+                    mode.label,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Play build: the face model behind "베베컵에게 맡기기" comes from Google Play
+ * services the first time, so show whether it is here and let the parent fetch
+ * it now (e.g. on Wi-Fi). GitHub build: the model is inside the app.
+ */
+@Composable
+private fun FaceModelCard(viewModel: BabyCupViewModel) {
+    LaunchedEffect(Unit) { viewModel.refreshFaceModelState() }
+    val state = viewModel.faceModelState
+    val bundled = viewModel.faceModelBundled
+    SettingsCard("얼굴 인식 기능") {
+        val status = when (state) {
+            FaceModelState.UNKNOWN, FaceModelState.CHECKING -> "확인하는 중이에요"
+            FaceModelState.READY -> if (bundled) "앱에 들어 있어요. 따로 받을 필요가 없어요." else "준비됐어요."
+            FaceModelState.NOT_INSTALLED -> "아직 받지 않았어요. 처음 '베베컵에게 맡기기'를 할 때 자동으로 받아요."
+            FaceModelState.DOWNLOADING -> viewModel.faceModelProgress
+                ?.let { "받는 중이에요 ${(it * 100).toInt()}%" } ?: "받는 중이에요"
+            FaceModelState.FAILED -> "받지 못했어요. 인터넷에 연결한 뒤 다시 받아 주세요."
+            FaceModelState.UNAVAILABLE -> "Google Play 서비스를 확인할 수 없어요. Play 서비스가 없거나 꺼진 기기에서는 쓸 수 없어요."
+        }
+        Text(
+            status,
+            fontSize = 13.sp,
+            lineHeight = 19.sp,
+            modifier = Modifier
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .testTag("settings_face_model_status")
+        )
+        if (state == FaceModelState.DOWNLOADING) {
+            val progress = viewModel.faceModelProgress
+            if (progress != null) {
+                LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().padding(8.dp))
+            } else {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(8.dp))
+            }
+        }
+        if (state == FaceModelState.NOT_INSTALLED || state == FaceModelState.FAILED || state == FaceModelState.UNAVAILABLE) {
+            OutlinedButton(
+                onClick = {
+                    if (state == FaceModelState.UNAVAILABLE) viewModel.refreshFaceModelState()
+                    else viewModel.installFaceModelNow()
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+                    .testTag("settings_face_model_btn"),
+                shape = RoundedCornerShape(14.dp)
+            ) { Text(if (state == FaceModelState.UNAVAILABLE) "다시 확인" else "지금 받기", fontSize = 13.sp) }
+        }
+        Caption(
+            if (bundled) {
+                "Google ML Kit 얼굴 인식이에요. 흔들림·밝기·눈 감김·표정을 기기 안에서 판단하고, 사진은 밖으로 보내지 않아요."
+            } else {
+                "Google ML Kit 얼굴 인식이에요. 앱을 작게 유지하려고 이 기능만 Google Play 서비스에서 한 번 받아요. " +
+                    "흔들림·밝기·눈 감김·표정을 기기 안에서 판단하고, 사진은 밖으로 보내지 않아요."
+            }
+        )
+    }
+}
+
+@Composable
+private fun AppUpdateCard() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val status = UpdateChannel.rememberStatus()
+    val isPlay = UpdateChannel.LABEL == "Google Play"
+    SettingsCard("앱 업데이트") {
+        val line = when (status) {
+            UpdateStatus.Unknown -> "지금 베베컵 ${BuildConfig.VERSION_NAME}을 쓰고 있어요."
+            UpdateStatus.Checking -> "새 버전이 있는지 확인하는 중이에요"
+            UpdateStatus.UpToDate -> "최신 버전(${BuildConfig.VERSION_NAME})을 쓰고 있어요."
+            is UpdateStatus.CheckFailed -> status.reason
+            is UpdateStatus.Available -> status.versionName?.let { "새 버전 ${VersionParticles.subject(it)} 나왔어요." } ?: "새 버전이 나왔어요."
+            is UpdateStatus.Downloading -> status.progress?.let { "받는 중이에요 ${(it * 100).toInt()}%" } ?: "받는 중이에요"
+            is UpdateStatus.ReadyToInstall -> "다 받았어요. '설치'를 눌러 주세요."
+            is UpdateStatus.Installing -> "설치하는 중이에요. Android가 물어보면 '업데이트'를 눌러 주세요."
+            is UpdateStatus.DownloadFailed -> status.reason
+        }
+        Text(
+            line,
+            fontSize = 13.sp,
+            lineHeight = 19.sp,
+            modifier = Modifier
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .testTag("settings_update_status")
+        )
+        when (status) {
+            is UpdateStatus.Available, is UpdateStatus.DownloadFailed, is UpdateStatus.ReadyToInstall -> Button(
+                onClick = { UpdateChannel.startUpdate(context) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+                    .testTag("settings_update_btn"),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Text(
+                    when {
+                        status is UpdateStatus.ReadyToInstall -> "설치"
+                        isPlay -> "Play 스토어에서 업데이트"
+                        else -> "업데이트 받기"
+                    },
+                    fontSize = 13.sp
+                )
+            }
+            is UpdateStatus.Installing -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(8.dp))
+            is UpdateStatus.Downloading -> {
+                val progress = status.progress
+                if (progress != null) {
+                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().padding(8.dp))
+                } else {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(8.dp))
+                }
+            }
+            else -> OutlinedButton(
+                onClick = { scope.launch { UpdateChannel.checkNow(context) } },
+                enabled = status != UpdateStatus.Checking,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+                    .testTag("settings_update_check_btn"),
+                shape = RoundedCornerShape(14.dp)
+            ) { Text("업데이트 확인", fontSize = 13.sp) }
+        }
+        UpdateChannel.AutoUpdateOptions()
+        Caption(UpdateChannel.SETTINGS_CAPTION)
     }
 }
 

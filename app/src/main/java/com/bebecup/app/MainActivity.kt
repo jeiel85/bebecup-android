@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.viewModels
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -36,6 +38,7 @@ import com.bebecup.app.ui.photo.BestBoxScreen
 import com.bebecup.app.ui.print.PrintCartView
 import com.bebecup.app.ui.settings.SettingsScreen
 import com.bebecup.app.ui.theme.MyApplicationTheme
+import com.bebecup.app.ui.theme.isDark
 import com.bebecup.app.ui.tournament.WorldCupPlayView
 import com.bebecup.app.ui.tournament.WorldCupSetupView
 import com.bebecup.app.ui.tournament.WorldCupWinnerCelebrationView
@@ -48,11 +51,19 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         if (savedInstanceState == null) viewModel.handleLaunchIntent(intent)
         UpdateChannel.handleDebugLaunch(intent)
+        UpdateChannel.onAppStart(this)
         setContent {
-            MyApplicationTheme {
+            val dark = viewModel.themeMode.isDark()
+            // Status/navigation bar icons follow BebeCup's theme (설정 > 화면 테마), not the phone's.
+            DisposableEffect(dark) {
+                val transparent = android.graphics.Color.TRANSPARENT
+                val style = if (dark) SystemBarStyle.dark(transparent) else SystemBarStyle.light(transparent, transparent)
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+                onDispose {}
+            }
+            MyApplicationTheme(darkTheme = dark) {
                 MainContentScreen(viewModel)
             }
         }

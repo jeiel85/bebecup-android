@@ -1,21 +1,13 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# BebeCup R8 rules. The release build is minified (R8 full mode, AGP 9).
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
-
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
-
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# ML Kit (play-services-mlkit-face-detection in the play build, the bundled
+# face-detection in the github build) finds its components through
+# manifest <meta-data> and creates each ComponentRegistrar with
+# Class.getDeclaredConstructor().newInstance(). R8 full mode keeps the class
+# names (the library's rules) but drops the unused no-arg constructors, so
+# every registrar fails with NoSuchMethodException, FaceDetection.getClient()
+# throws a NullPointerException and the whole "베베컵에게 맡기기" scan stops
+# (v0.7.1–v0.10.0 release builds; debug builds are not minified and were fine).
+-keep class * implements com.google.firebase.components.ComponentRegistrar {
+    <init>();
+}

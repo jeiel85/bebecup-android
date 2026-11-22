@@ -73,8 +73,8 @@ android {
     applicationId = "com.bebecup.app"
     minSdk = 24
     targetSdk = 36
-    versionCode = 11
-    versionName = "0.10.0"
+    versionCode = 12
+    versionName = "0.11.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -114,6 +114,16 @@ android {
     }
     create("github") {
       dimension = "channel"
+      // Where the in-app updater looks for update.json and the APK (src/github/.../GithubUpdates).
+      buildConfigField("String", "UPDATE_REPO", "\"jeiel85/bebecup-android\"")
+      // SHA-256 of the GitHub APK signing certificate (docs/RELEASE.md). The updater
+      // offers an in-place update only to installs signed with it, since Android
+      // refuses any other. -Pbebecup.updateSignerSha256=<hex> points it at another key
+      // (e.g. the debug key, to try the update flow on an emulator with a re-signed APK).
+      val updateSigner = (findProperty("bebecup.updateSignerSha256") as String?)
+        ?: "8734b582f9be30b6f11b33ac608f82b4e599adc870da7a0fbbc7c456f1807966"
+      require(Regex("[0-9a-f]{64}").matches(updateSigner)) { "bebecup.updateSignerSha256 must be 64 lower-case hex digits" }
+      buildConfigField("String", "UPDATE_SIGNER_SHA256", "\"$updateSigner\"")
       if (githubSigning.isComplete) signingConfig = signingConfigs.getByName("github")
     }
   }

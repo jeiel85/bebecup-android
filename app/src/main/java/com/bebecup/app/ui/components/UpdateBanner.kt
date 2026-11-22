@@ -22,11 +22,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * "새 버전이 나왔어요" on home. Tapping it opens the store; the close button
- * hides it until an even newer version comes out.
+ * "새 버전이 나왔어요" on home. Tapping it starts the update (the Play listing,
+ * or the GitHub build's own download); the close button hides it until an even
+ * newer version comes out.
  */
 @Composable
-fun UpdateBannerContent(onClick: () -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+fun UpdateBannerContent(
+    onClick: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+    title: String = "새 버전이 나왔어요",
+    subtitle: String = "눌러서 Play 스토어에서 업데이트하세요",
+) {
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
@@ -42,8 +49,8 @@ fun UpdateBannerContent(onClick: () -> Unit, onDismiss: () -> Unit, modifier: Mo
         ) {
             Text("✨", fontSize = 20.sp, modifier = Modifier.padding(end = 12.dp))
             Column(Modifier.weight(1f)) {
-                Text("새 버전이 나왔어요", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                Text("눌러서 Play 스토어에서 업데이트하세요", fontSize = 12.sp)
+                Text(title, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(subtitle, fontSize = 12.sp)
             }
             Text("업데이트", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             IconButton(onClick = onDismiss, modifier = Modifier.testTag("update_banner_dismiss")) {
