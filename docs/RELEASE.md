@@ -85,7 +85,9 @@ app/build/outputs/apk/github/release/app-github-release.apk    # GitHub Releases
 
 ## R8
 
-Release 빌드는 R8 minify와 resource shrinking을 사용한다. 필요한 keep rule은 `app/proguard-rules.pro`에 최소 범위로 추가하고, 왜 필요한지 주석을 남긴다.
+Release 빌드는 R8 minify와 resource shrinking을 사용한다(AGP 9는 R8 full mode). 필요한 keep rule은 `app/proguard-rules.pro`에 최소 범위로 추가하고, 왜 필요한지 주석을 남긴다.
+
+R8 full mode가 ML Kit 컴포넌트 등록 클래스(`FaceRegistrar` 등, 매니페스트 메타데이터로 리플렉션 생성)의 기본 생성자를 지워 v0.7.1~v0.10.0 릴리스 빌드(두 채널 모두)에서 "베베컵에게 맡기기"가 처음부터 실패했다. 디버그 빌드는 축소하지 않아 테스트에 걸리지 않았다. CI는 두 채널의 `mapping/<flavor>Release/seeds.txt`에 세 생성자가 남았는지 확인한다. 리플렉션을 쓰는 라이브러리를 바꾸면 릴리스 빌드를 디버그 키로 다시 서명해 에뮬레이터에서 직접 확인한다.
 
 R8 mapping 파일은 채널마다 다르다(코드가 달라 난독화 결과도 다름):
 
@@ -194,6 +196,7 @@ PLAY_SERVICE_ACCOUNT_JSON        # Play 업로드용 서비스 계정 키 JSON (
 
 - `bebecup-vX.Y.Z.apk` (GitHub 키로 서명된 `github` 빌드 APK)
 - `bebecup-vX.Y.Z.mapping.txt` (그 APK의 R8 난독화 해제 매핑 파일)
+- `update.json` (GitHub 빌드의 앱 내 업데이트 확인용: `versionCode`, `versionName`, `apk`, `sha256`, `size`. `scripts/update_manifest.py`가 만든다. 앱은 `releases/latest/download/update.json`을 읽고, APK 주소는 저장소·`v<versionName>` 태그·파일 이름으로 직접 만든다. 그래서 `versionName`이 태그와 다르면 워크플로가 멈춘다. 이미 설치된 앱이 읽는 공개 계약이므로 형식을 바꾸지 않는다)
 
 릴리스 작업은 서명 뒤 GitHub APK와 Play AAB의 인증서 SHA-256이 위 두 표의 값과 같은지 확인하고, 다르면 멈춘다.
 

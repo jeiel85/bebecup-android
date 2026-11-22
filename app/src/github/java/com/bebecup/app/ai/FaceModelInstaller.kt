@@ -11,7 +11,12 @@ import android.content.Context
 @Suppress("UNUSED_PARAMETER")
 class FaceModelInstaller(context: Context) {
 
+    /** The model is inside the APK; 설정 has nothing to download. */
+    val bundled = true
+
     fun requestInBackground() = Unit
+
+    suspend fun isInstalled(): Boolean? = true
 
     suspend fun ensureInstalled(onProgress: (Float?) -> Unit = {}): Boolean = true
 }

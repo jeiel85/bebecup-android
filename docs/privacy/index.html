@@ -52,6 +52,7 @@
   <p>얼굴 인식에는 Google ML Kit을 씁니다. 얼굴 인식은 기기 안에서만 이뤄지지만, ML Kit은 기능의 성능과 사용에 관한 지표(기기 제조사·모델, Android 버전, 앱 패키지 이름·버전, 처리 시간, 이벤트 종류, 오류 코드, 설치마다 만들어지는 식별자)를 Google에 보낼 수 있습니다. 사진, 얼굴 데이터, 인식 결과는 보내지 않습니다. 이 전송은 앱에서 끌 수 없습니다. 자세한 내용은 Google의 <a href="https://developers.google.com/ml-kit/terms">ML Kit 약관</a>과 <a href="https://developers.google.com/ml-kit/android-data-disclosure">Android 데이터 공개 안내</a>에 있습니다.</p>
   <p>Google Play에서 설치한 앱은 얼굴 인식 모델을 처음 쓸 때 Google Play 서비스가 내려받습니다. 이때도 사진은 기기 밖으로 나가지 않습니다. GitHub에서 받은 APK는 모델이 앱 안에 들어 있습니다.</p>
   <p>Google Play에서 설치한 앱은 새 버전이 있는지 기기의 Google Play 앱에 묻습니다(Play 인앱 업데이트). 이 확인과 업데이트 설치는 Google Play가 처리합니다.</p>
+  <p>GitHub에서 받은 APK는 새 버전이 있는지 확인하려고 앱을 열 때(몇 시간에 한 번)와 설정에서 '업데이트 확인'을 누를 때 GitHub 릴리스의 버전 정보 파일(update.json)을 받고, 사용자가 업데이트를 누를 때만 새 APK를 받습니다. 이 요청에는 사진·기록·기기 식별자가 담기지 않으며, 접속 IP 같은 통신 기록은 GitHub의 정책에 따라 처리됩니다.</p>
 
   <h2>4. 외부 인화 사이트</h2>
   <p>앱은 사용자가 명시적으로 선택한 경우 외부 인화 사이트를 브라우저로 열 수 있습니다. 이 경우 이후의 개인정보 처리와 주문 절차는 해당 외부 사이트의 정책을 따릅니다. 베베컵은 사진 파일을 외부 인화 사이트에 자동 업로드하지 않습니다.</p>
@@ -91,6 +92,7 @@
   <p>Bebecup does not send photo files, photo URIs, photo analysis or face detection results, the baby's details, location, contacts, or account information to any external server, and does not share them with third parties. No advertising, analytics, or tracking SDKs are included.</p>
   <p>Face detection uses Google ML Kit. Detection runs entirely on the device, but ML Kit may send Google metrics about the feature's performance and use (device maker and model, Android version, app package name and version, processing time, event type, error codes, and a per-installation identifier). It does not send photos, face data, or detection results. The app cannot turn this off. See Google's <a href="https://developers.google.com/ml-kit/terms">ML Kit terms</a> and <a href="https://developers.google.com/ml-kit/android-data-disclosure">Android data disclosure</a>.</p>
   <p>When installed from Google Play, the face detection model is downloaded by Google Play services the first time it is needed; photos stay on the device. The APK from GitHub includes the model.</p>
+  <p>The APK from GitHub checks for a new version by downloading a version file (update.json) from GitHub Releases when the app opens (at most every few hours) and when you tap Check for updates in Settings, and downloads a new APK only when you choose to update. These requests carry no photos, records or device identifiers; connection data such as your IP address is handled under GitHub&#39;s own policies.</p>
   <p>When installed from Google Play, the app asks the Google Play app on the device whether a newer version is available (Play In-App Updates). Google Play handles that check and any update.</p>
 
   <h2>4. External print sites</h2>

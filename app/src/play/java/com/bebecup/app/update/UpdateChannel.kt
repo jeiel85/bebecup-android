@@ -1,5 +1,6 @@
 package com.bebecup.app.update
 
+import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -11,11 +12,18 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.bebecup.app.BuildConfig
+import kotlinx.coroutines.flow.MutableStateFlow
 
 /** Play build: the home update banner backed by [StoreUpdates]. */
 object UpdateChannel {
 
+    /** Shown in 설정 ("… 배포본"). */
+    const val LABEL = "Google Play"
+
     private const val EXTRA_DEBUG_FAKE_UPDATE = "debug_fake_update"
+
+    /** The last answer to 설정 > 업데이트 확인 in this process; home's background checks feed [StoreUpdates.available]. */
+    private val manual = MutableStateFlow<UpdateStatus>(UpdateStatus.Unknown)
 
     /**
      * Debug builds only: `adb shell am start -n com.bebecup.app/.MainActivity --ei debug_fake_update 99`
@@ -48,4 +56,36 @@ object UpdateChannel {
             onDismiss = { StoreUpdates.dismiss(context, versionCode) },
         )
     }
+
+    /** 설정 > 앱 업데이트: what Play said last, by a manual check or home's background check. */
+    @Composable
+    fun rememberStatus(): UpdateStatus {
+        val context = LocalContext.current
+        remember(context) { StoreUpdates.restore(context.applicationContext) }
+        val checked by manual.collectAsState()
+        val available by StoreUpdates.available.collectAsState()
+        return when {
+            checked == UpdateStatus.Checking -> checked
+            available != null -> UpdateStatus.Available(versionName = null, versionCode = available!!)
+            else -> checked
+        }
+    }
+
+    suspend fun checkNow(context: Context) {
+        manual.value = UpdateStatus.Checking
+        val answer = StoreUpdates.checkNow(context)
+        manual.value = when {
+            answer == null -> UpdateStatus.CheckFailed(
+                "Google Play에서 확인하지 못했어요. Play 스토어에서 설치한 앱만 여기서 확인할 수 있어요."
+            )
+            answer > 0 -> UpdateStatus.Available(versionName = null, versionCode = answer)
+            else -> UpdateStatus.UpToDate
+        }
+    }
+
+    /** "Play 스토어에서 업데이트": Play does the installing. */
+    fun startUpdate(context: Context) = StoreUpdates.openStore(context)
+
+    /** 설정 caption under the update card. */
+    const val SETTINGS_CAPTION = "Google Play로 받은 베베컵이에요. 업데이트는 Play 스토어가 설치해요."
 }

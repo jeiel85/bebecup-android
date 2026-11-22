@@ -3,9 +3,8 @@ package com.bebecup.app.update
 import java.util.concurrent.TimeUnit
 
 /**
- * What the app knows about a newer version. Each channel flavor has its own
- * `AppUpdates` object (src/github, src/play) with the same members; the UI only
- * talks to it through this state:
+ * What 설정 > 앱 업데이트 knows about a newer version. Each channel flavor's
+ * `UpdateChannel` (src/github, src/play) produces it:
  *
  * - GitHub build: reads `update.json` from the latest GitHub Release, downloads
  *   the APK, checks its SHA-256 and hands it to Android's installer.
@@ -31,7 +30,7 @@ val UpdateStatus.offersUpdate: Boolean
     get() = this is UpdateStatus.Available || this is UpdateStatus.Downloading ||
         this is UpdateStatus.ReadyToInstall || this is UpdateStatus.DownloadFailed
 
-/** Timing rules shared by both channels, free of Android calls so tests can pin them. */
+/** When the GitHub build re-checks, free of Android calls so tests can pin it. */
 object UpdateCheckPolicy {
 
     /** Coming back to the app re-checks only after this long; "업데이트 확인" in 설정 always checks. */

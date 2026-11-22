@@ -2,6 +2,28 @@
 
 되돌리기 어려운 결정(보안·데이터 형식·공개 API·인프라·주요 의존성)만 기록한다.
 
+## 2026-11-22 GitHub 빌드의 앱 내 업데이트
+
+### 배경
+
+아래 "채널별 빌드" 결정은 GitHub 빌드 업데이터를 수요가 확인될 때 `github` 소스셋에만 넣기로 했다. 사용자가 다른 앱(Markleaf·Homebase)처럼
+자동 업데이트 확인을 직접 요청했다.
+
+### 결정
+
+- `src/github`에만 `update/GithubUpdates`와 `INTERNET`·`REQUEST_INSTALL_PACKAGES`를 둔다. `play` 빌드는 그대로 Play In-App Updates로 확인만 한다.
+- 릴리스 워크플로가 GitHub Release에 `update.json`(`versionCode`, `versionName`, `apk`, `sha256`, `size`)을 붙인다. 앱은
+  `releases/latest/download/update.json`을 홈이 앞에 올 때 최대 6시간에 한 번, 설정에서 누를 때 읽는다.
+- APK 주소는 파일에서 받지 않고 저장소·`v<versionName>` 태그·파일 이름으로 앱이 만든다(파일이 바뀌어도 이 저장소 릴리스 자산만 가리킴).
+  형식이 조금이라도 다르면 무시한다. 사용자가 누를 때만 받고, 크기·SHA-256이 맞을 때만 Android 설치 화면(`ACTION_INSTALL_PACKAGE`)에 넘긴다.
+  서명이 다른 APK는 Android가 거부한다(GitHub 키 고정).
+- 홈 배너 닫기는 Play와 같은 prefs 키(versionCode별)를 쓴다. 채널마다 다른 빌드라 섞이지 않는다.
+
+### 되돌리기·재검토 조건
+
+- `update.json` 형식과 위치는 이미 설치된 GitHub 빌드가 읽는 공개 계약이다. 바꾸려면 새 파일 이름을 추가하고 옛 파일을 한동안 함께 올린다.
+- F-Droid 채널을 만들면 세 번째 flavor로 추가하고 자체 업데이트는 넣지 않는다.
+
 ## 2026-11-22 채널별 빌드: `play`·`github` flavor와 채널별 서명 키
 
 ### 배경
@@ -27,7 +49,7 @@ Play 업데이트 배너가 GitHub APK에서도 뜰 수 있었다(#11).
   `FaceModelInstaller`가 `ModuleInstallClient`로 받음), 홈 업데이트 배너(`app-update`)가 있다.
 - `github`: 새 키 `bebecup-github`(`BEBECUP_GITHUB_*`, SHA-256 `87:34:B5:…:79:66`, 2026-11-21 생성, 드라이브 백업). 얼굴 인식 모델을 APK에
   넣은 번들형(`com.google.mlkit:face-detection`, 같은 `com.google.mlkit.vision.face` API)이라 Play 서비스 없이 동작한다.
-  업데이트 배너는 없다. 앱이 직접 APK를 받아 설치하는 업데이터는 이번에 만들지 않았다(수요 확인 전).
+  업데이트 배너는 없다. 앱이 직접 APK를 받아 설치하는 업데이터는 이번에 만들지 않았다(수요 확인 전, 위 "GitHub 빌드의 앱 내 업데이트"에서 추가).
 - 채널별 코드는 `src/play`·`src/github`의 같은 이름 클래스(`ai/FaceModelInstaller`, `update/UpdateChannel`)로 나누고,
   공통 코드는 `UpdateBannerState`만 안다.
 - 릴리스 워크플로는 두 키를 복원해 `assembleGithubRelease`·`bundlePlayRelease`를 만들고, 각 산출물의 인증서 SHA-256을 문서의 값과

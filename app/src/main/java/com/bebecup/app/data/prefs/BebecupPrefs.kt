@@ -100,6 +100,11 @@ class BebecupPrefs(context: Context) {
         get() = prefs.getString(KEY_MONTHLY_NOTIFIED, "") ?: ""
         set(value) = prefs.edit().putString(KEY_MONTHLY_NOTIFIED, value).apply()
 
+    /** 설정 > 화면 테마: "light" (default), "dark" or "system". See ThemeMode. */
+    var themeMode: String?
+        get() = prefs.getString(KEY_THEME_MODE, null)
+        set(value) = prefs.edit().putString(KEY_THEME_MODE, value).apply()
+
     companion object {
         const val SCAN_SINCE_LAST_REVIEW = 0
 
@@ -125,5 +130,6 @@ class BebecupPrefs(context: Context) {
         private const val KEY_UPDATE_OFFERED = "update_offered_version_code"
         private const val KEY_UPDATE_DISMISSED = "update_dismissed_version_code"
         private const val KEY_UPDATE_FAILURES = "update_check_failures"
+        private const val KEY_THEME_MODE = "theme_mode"
     }
 }

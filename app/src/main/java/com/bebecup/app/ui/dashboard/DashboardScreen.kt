@@ -76,7 +76,14 @@ fun DashboardView(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         if (updateBanner != null) {
-            item { UpdateBannerContent(onClick = updateBanner.onOpen, onDismiss = updateBanner.onDismiss) }
+            item {
+                UpdateBannerContent(
+                    onClick = updateBanner.onOpen,
+                    onDismiss = updateBanner.onDismiss,
+                    title = updateBanner.title,
+                    subtitle = updateBanner.subtitle,
+                )
+            }
         }
         item {
             HomeHeader(

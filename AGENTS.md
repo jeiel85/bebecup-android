@@ -50,6 +50,8 @@ com.bebecup.app
 
 - `app/build/outputs/bundle/playRelease/app-play-release.aab`와 `app/build/outputs/apk/github/release/app-github-release.apk`(서명 없으면 `-unsigned`) 존재 여부 확인
 - 파일 크기가 0보다 큰지 확인
+- 릴리스 빌드는 R8 full mode라 디버그에서 되는 기능이 릴리스에서만 깨질 수 있다(v0.7.1~v0.10.0의 "베베컵에게 맡기기"). 얼굴 인식처럼 리플렉션을 쓰는 라이브러리를 바꾸면 릴리스 빌드를 디버그 키로 다시 서명해 에뮬레이터·실기기에서 확인한다.
+- `github` 빌드만 앱 안에서 GitHub 릴리스의 `update.json`을 보고 APK를 받아 설치한다(`INTERNET`, `REQUEST_INSTALL_PACKAGES`는 `src/github`에만). `play` 빌드에는 자체 다운로드·설치 코드와 권한을 넣지 않는다.
 
 ## Release Artifact Export
 

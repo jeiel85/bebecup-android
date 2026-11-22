@@ -40,6 +40,7 @@ import com.bebecup.app.domain.usecase.ClusterDuplicatesUseCase
 import com.bebecup.app.domain.usecase.CompareParentPickWithAiPickUseCase
 import com.bebecup.app.domain.usecase.ExplainTopPhotosUseCase
 import com.bebecup.app.domain.usecase.ScanRecentBabyPhotosUseCase
+import com.bebecup.app.ui.theme.ThemeMode
 import com.bebecup.app.nudge.NudgeNotifier
 import com.bebecup.app.nudge.NudgeScheduler
 import com.bebecup.app.nudge.UnsortedPhotoCounter
@@ -137,6 +138,20 @@ class BabyCupViewModel(
     var aiSimilarOnly by mutableStateOf(prefs.similarOnly)
         private set
     var aiExcludeBlurry by mutableStateOf(prefs.excludeBlurry)
+        private set
+
+    // ---------------- Appearance & face model (설정) ----------------
+
+    var themeMode by mutableStateOf(ThemeMode.fromStorageKey(prefs.themeMode))
+        private set
+
+    /** GitHub build: the face model is inside the APK; Play build: Play services fetches it. */
+    val faceModelBundled: Boolean get() = faceModelInstaller.bundled
+
+    var faceModelState by mutableStateOf(FaceModelState.UNKNOWN)
+        private set
+    /** Download progress 0..1 while [FaceModelState.DOWNLOADING] and the size is known. */
+    var faceModelProgress by mutableStateOf<Float?>(null)
         private set
 
     // ---------------- Baby profile (on this device only) ----------------
@@ -347,6 +362,38 @@ class BabyCupViewModel(
     fun daysSinceReview(): Long? =
         NudgePolicy.daysSinceReview(lastReviewedAtMillis, System.currentTimeMillis())
 
+    // ================= 설정: 화면 테마 · 얼굴 인식 기능 =================
+
+    fun updateThemeMode(mode: ThemeMode) {
+        prefs.themeMode = mode.storageKey
+        themeMode = mode
+    }
+
+    /** Whether the face model is on this device (설정 shows it). Always ready in the GitHub build (bundled). */
+    fun refreshFaceModelState() {
+        if (faceModelState == FaceModelState.DOWNLOADING) return
+        viewModelScope.launch {
+            faceModelState = FaceModelState.CHECKING
+            faceModelState = when (faceModelInstaller.isInstalled()) {
+                true -> FaceModelState.READY
+                false -> FaceModelState.NOT_INSTALLED
+                null -> FaceModelState.UNAVAILABLE
+            }
+        }
+    }
+
+    /** 설정 > 지금 받기: download the face model now instead of at the first scan. */
+    fun installFaceModelNow() {
+        if (faceModelState == FaceModelState.DOWNLOADING || aiIsScanning) return
+        viewModelScope.launch {
+            faceModelState = FaceModelState.DOWNLOADING
+            faceModelProgress = null
+            val ok = faceModelInstaller.ensureInstalled { faceModelProgress = it }
+            faceModelProgress = null
+            faceModelState = if (ok) FaceModelState.READY else FaceModelState.FAILED
+        }
+    }
+
     // ================= 아기 정보 =================
 
     /**
@@ -444,11 +491,13 @@ class BabyCupViewModel(
                     aiFaceModelProgress = progress
                 }
                 if (!faceModelReady) {
+                    faceModelState = FaceModelState.FAILED
                     aiFaceModelMissing = true
                     aiScanFailed = true
                     return@launch
                 }
                 aiFaceModelProgress = null
+                faceModelState = FaceModelState.READY
                 aiProgressStep = STEP_SCAN
                 aiRepository.deleteStaleAnalyses()
 
@@ -840,3 +889,6 @@ class BabyCupViewModel(
         const val STEP_SHORTLIST = "베베컵이 베스트 후보를 정리하는 중이에요"
     }
 }
+
+/** The on-device face model (ML Kit), as 설정 shows it. */
+enum class FaceModelState { UNKNOWN, CHECKING, READY, NOT_INSTALLED, DOWNLOADING, FAILED, UNAVAILABLE }

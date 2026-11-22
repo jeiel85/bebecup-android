@@ -77,6 +77,20 @@ object StoreUpdates {
         val appContext = context.applicationContext
         restore(appContext)
         if (!StoreUpdateDecision.isStale(lastCheckedAt, System.currentTimeMillis())) return
+        check(appContext)
+    }
+
+    /**
+     * 설정 > 업데이트 확인: asks Play now. Returns the offered versionCode, 0 when
+     * this is the newest, or null when Play could not answer.
+     */
+    suspend fun checkNow(context: Context): Int? {
+        val appContext = context.applicationContext
+        restore(appContext)
+        return check(appContext)
+    }
+
+    private suspend fun check(appContext: Context): Int? {
         val prefs = BebecupPrefs(appContext)
         val answer = withTimeoutOrNull(TIMEOUT_MILLIS) { query(appContext) }
         if (answer == null) {
@@ -84,7 +98,7 @@ object StoreUpdates {
             prefs.updateCheckFailures = failures
             // A sideloaded or non-Play copy fails every time; say how long it has been failing.
             Log.w(TAG, "Play gave no update answer ($failures in a row)")
-            return
+            return null
         }
         val now = System.currentTimeMillis()
         _available.value = answer.takeIf { it > 0 }
@@ -92,6 +106,7 @@ object StoreUpdates {
         prefs.updateOfferedVersionCode = answer
         prefs.updateLastCheckedAtMillis = now
         prefs.updateCheckFailures = 0
+        return answer
     }
 
     /** Hide the banner for [versionCode]; a later version shows it again. */

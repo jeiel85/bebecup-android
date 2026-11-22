@@ -1,5 +1,13 @@
 # History
 
+## 2026-11-22 (사용자 피드백: 맡기기 멈춤·설정·업데이트·테마)
+
+- **피드백**: "베베컵에게 맡기기"가 "사진을 살펴보다 멈췄어요"만 보이고 멈춤 / 설정이 너무 적고 얼굴 인식(ML Kit) 설정이 없음 / 앱이 전반적으로 제 기능을 하는지 / 다른 앱처럼 자동 업데이트 확인 / 테마가 어두움.
+- **원인(맡기기)**: Play 배포본과 같은 R8 릴리스 빌드를 에뮬레이터에 깔아 재현. `FaceDetection.getClient()`가 NPE — R8 full mode(AGP 9)가 매니페스트 메타데이터로 리플렉션 생성되는 ML Kit `ComponentRegistrar`(`FaceRegistrar`·`VisionCommonRegistrar`·`CommonComponentRegistrar`)의 기본 생성자를 지움. 디버그 빌드는 축소하지 않아 단위·계측 테스트에 안 걸림. v0.7.1부터 v0.10.0까지 릴리스 빌드 전부(번들형 ML Kit을 쓰는 v0.10.0 GitHub APK 포함).
+- **변경**: `proguard-rules.pro`에 `ComponentRegistrar` 구현체의 `<init>()` keep, CI가 두 채널 `seeds.txt`로 세 생성자를 확인. 테마는 밝게 기본 + 설정에서 선택(`ThemeMode`, container·surfaceContainer 색 지정, 시스템 바 아이콘 색 연동). 설정에 화면 테마·얼굴 인식 기능(Play: 상태·지금 받기, GitHub: 내장)·앱 업데이트(상태·업데이트 확인) 카드. GitHub 빌드에 앱 내 업데이트(`GithubUpdates`: `update.json` 확인 → APK 받기 → 크기·SHA-256 확인 → Android 설치 화면, Markleaf·Homebase와 같은 방식)를 `src/github`에만 넣고, 릴리스 워크플로가 `update.json`을 붙임(`DECISIONS.md`).
+- **진행 중 겹침**: 작업 중 다른 세션이 v0.9.0·v0.10.0(채널 분리)을 내서, 처음 만든 flavor 분리는 버리고 main 구조(`UpdateChannel`, flavor별 `FaceModelInstaller`) 위에 다시 얹음.
+- **검증**: PR에 기록.
+
 ## 2026-11-22 (하드닝 이슈 묶음: #3·#8·#11·#14·#15)
 
 - **채널 분리(#3·#8·#11)**: `play`/`github` flavor. GitHub용 새 서명 키를 만들어 로컬 `.keystore/`와 드라이브에 백업(바이트 비교), GitHub Secrets `BEBECUP_GITHUB_*` 4개 등록. Play 업로드 키는 그대로. GitHub 빌드는 번들형 ML Kit, Play 빌드는 Play 서비스 모델 + 업데이트 배너. 릴리스 워크플로가 두 산출물의 인증서 SHA-256을 확인함(`DECISIONS.md`).

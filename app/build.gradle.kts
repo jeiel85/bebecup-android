@@ -114,6 +114,8 @@ android {
     }
     create("github") {
       dimension = "channel"
+      // Where the in-app updater looks for update.json and the APK (src/github/.../GithubUpdates).
+      buildConfigField("String", "UPDATE_REPO", "\"jeiel85/bebecup-android\"")
       if (githubSigning.isComplete) signingConfig = signingConfigs.getByName("github")
     }
   }
