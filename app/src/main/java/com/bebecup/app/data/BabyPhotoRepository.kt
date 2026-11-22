@@ -40,7 +40,13 @@ class BabyPhotoRepository(private val babyPhotoDao: BabyPhotoDao) {
 
     suspend fun updateTakenDate(id: Int, takenDate: String) = babyPhotoDao.updateTakenDate(id, takenDate)
 
-    suspend fun getPhotosByTitle(title: String): List<BabyPhoto> = babyPhotoDao.getPhotosByTitle(title)
+    suspend fun getKeptPhotos(): List<BabyPhoto> = babyPhotoDao.getKeptPhotos()
+
+    suspend fun pruneUnkeptPhotos(): Int = babyPhotoDao.pruneUnkeptPhotos()
+
+    suspend fun deletePhotos(ids: List<Int>) {
+        if (ids.isNotEmpty()) babyPhotoDao.deletePhotos(ids)
+    }
 
     suspend fun pruneMockPhotos() = babyPhotoDao.pruneMockPhotos()
 

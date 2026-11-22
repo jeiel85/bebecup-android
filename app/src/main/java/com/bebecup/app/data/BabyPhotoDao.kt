@@ -60,8 +60,19 @@ interface BabyPhotoDao {
     @Query("UPDATE baby_photos SET takenDate = :takenDate WHERE id = :id")
     suspend fun updateTakenDate(id: Int, takenDate: String)
 
-    @Query("SELECT * FROM baby_photos WHERE title = :title")
-    suspend fun getPhotosByTitle(title: String): List<BabyPhoto>
+    /** Photos the family kept: in the 보관함 or the 인화함. */
+    @Query("SELECT * FROM baby_photos WHERE isSelectedAsBest = 1 OR isInPrintCart = 1")
+    suspend fun getKeptPhotos(): List<BabyPhoto>
+
+    /**
+     * Rows a scan added that the family did not keep (not in the 보관함 or
+     * 인화함, never a world-cup champion). Their analyses go with them.
+     */
+    @Query("DELETE FROM baby_photos WHERE isSelectedAsBest = 0 AND isInPrintCart = 0 AND winsCount = 0")
+    suspend fun pruneUnkeptPhotos(): Int
+
+    @Query("DELETE FROM baby_photos WHERE id IN (:ids)")
+    suspend fun deletePhotos(ids: List<Int>)
 
     @Query("DELETE FROM baby_photos WHERE uriString NOT LIKE 'content://%' AND uriString NOT LIKE 'file://%' AND uriString NOT LIKE 'http%'")
     suspend fun pruneMockPhotos()

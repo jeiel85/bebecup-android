@@ -37,6 +37,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +55,7 @@ import com.bebecup.app.R
 import com.bebecup.app.data.BabyPhoto
 import com.bebecup.app.ui.components.BabyPhotoIllustration
 import com.bebecup.app.ui.components.EmptyState
+import com.bebecup.app.ui.components.MissingPhotosCard
 import com.bebecup.app.ui.components.ScreenHeader
 import com.bebecup.app.ui.viewmodel.BabyCupViewModel
 import com.bebecup.app.ui.viewmodel.UiScreen
@@ -102,6 +104,15 @@ fun PrintCartView(viewModel: BabyCupViewModel, cartPhotos: List<BabyPhoto>) {
                 }
             }
             return@Column
+        }
+
+        LaunchedEffect(cartPhotos) { viewModel.findMissingPhotos(cartPhotos) }
+        if (viewModel.missingPhotoIds.isNotEmpty()) {
+            MissingPhotosCard(
+                count = viewModel.missingPhotoIds.size,
+                onRemove = viewModel::removeMissingPhotos,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp)
+            )
         }
 
         LazyColumn(

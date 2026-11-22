@@ -38,7 +38,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -50,11 +49,10 @@ import com.bebecup.app.ui.components.BabyPhotoIllustration
 import com.bebecup.app.ui.components.BabyProfileDialog
 import com.bebecup.app.ui.components.Illustration
 import com.bebecup.app.ui.components.UpdateBannerContent
-import com.bebecup.app.ui.components.rememberStoreUpdate
 import com.bebecup.app.ui.components.rememberNudgeOptIn
 import com.bebecup.app.ui.viewmodel.BabyCupViewModel
 import com.bebecup.app.ui.viewmodel.UiScreen
-import com.bebecup.app.update.StoreUpdates
+import com.bebecup.app.update.UpdateChannel
 
 /**
  * Home. Mirrors the app's journey: the top card says how many photos are
@@ -67,8 +65,7 @@ fun DashboardView(
     printCartPhotos: List<BabyPhoto>,
     tournaments: List<TournamentRecord>
 ) {
-    val context = LocalContext.current
-    val storeUpdate = rememberStoreUpdate()
+    val updateBanner = UpdateChannel.rememberBanner()
     var editingProfile by remember { mutableStateOf(false) }
     val ageToday = viewModel.ageToday()
     LazyColumn(
@@ -78,8 +75,8 @@ fun DashboardView(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        if (storeUpdate != null) {
-            item { UpdateBannerContent(onClick = { StoreUpdates.openStore(context) }) }
+        if (updateBanner != null) {
+            item { UpdateBannerContent(onClick = updateBanner.onOpen, onDismiss = updateBanner.onDismiss) }
         }
         item {
             HomeHeader(

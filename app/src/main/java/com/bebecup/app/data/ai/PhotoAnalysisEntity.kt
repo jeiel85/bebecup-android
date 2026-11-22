@@ -65,6 +65,9 @@ data class PhotoAnalysisEntity(
 ) {
     companion object {
         /** Bump when the scoring pipeline changes so stale rows are recomputed. */
-        const val CURRENT_ANALYSIS_VERSION = 2 // v2: EXIF orientation applied before face detection
+        // v2: EXIF orientation applied before face detection.
+        // v3: face model now comes from Play services (Play build) or the APK
+        //     (GitHub build); scores from the earlier bundled model are not mixed in.
+        const val CURRENT_ANALYSIS_VERSION = 3
     }
 }

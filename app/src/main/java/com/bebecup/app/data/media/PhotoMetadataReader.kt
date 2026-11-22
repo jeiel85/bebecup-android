@@ -9,6 +9,7 @@ import android.net.Uri
 import android.provider.MediaStore
 import android.util.Log
 import com.bebecup.app.domain.profile.CalendarDate
+import java.io.FileNotFoundException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -54,6 +55,23 @@ class PhotoMetadataReader(private val context: Context) {
      */
     suspend fun readTakenDate(uri: Uri): String? = withContext(Dispatchers.IO) {
         exifTakenDate(uri) ?: providerTakenDate(uri)
+    }
+
+    /**
+     * True only when the photo itself no longer exists (deleted from the
+     * gallery): the provider answers FileNotFoundException. A missing
+     * permission or any other failure is not proof it is gone, so false.
+     */
+    suspend fun isGone(uri: Uri): Boolean = withContext(Dispatchers.IO) {
+        try {
+            context.contentResolver.openAssetFileDescriptor(uri, "r")?.close()
+            false
+        } catch (_: FileNotFoundException) {
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "could not tell whether $uri still exists", e)
+            false
+        }
     }
 
     private fun exifTakenDate(uri: Uri): String? = try {

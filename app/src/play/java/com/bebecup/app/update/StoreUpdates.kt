@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import com.bebecup.app.BuildConfig
+import com.bebecup.app.data.prefs.BebecupPrefs
 import com.google.android.play.core.appupdate.AppUpdateInfo
 import com.google.android.play.core.appupdate.AppUpdateManager
 import com.google.android.play.core.appupdate.AppUpdateManagerFactory
@@ -26,9 +27,12 @@ import kotlin.coroutines.resume
  *
  * The Play In-App Updates API asks the Google Play app on the phone, which
  * knows every track open to this user (closed testing included). Play does the
- * installing; this app never downloads or installs anything itself. A copy not
- * installed from Play (the GitHub APK, a debug build) gets no answer, so no
- * banner.
+ * installing; this app never downloads or installs anything itself. This file
+ * is only in the Play build; the GitHub APK has no banner.
+ *
+ * The last answer and when it came are kept in [BebecupPrefs], so a cold start
+ * within [StoreUpdateDecision.RECHECK_MILLIS] shows the banner without asking
+ * Play again.
  */
 object StoreUpdates {
 
@@ -40,20 +44,60 @@ object StoreUpdates {
     /** The newer versionCode Play offers, or null. */
     val available: StateFlow<Int?> = _available.asStateFlow()
 
+    private val _dismissed = MutableStateFlow(0)
+
+    /** The versionCode whose banner the user closed, or 0. */
+    val dismissed: StateFlow<Int> = _dismissed.asStateFlow()
+
     @Volatile private var lastCheckedAt = 0L
+    @Volatile private var restored = false
 
     /** Debug builds only ([useFakeUpdate]): the versionCode to pretend Play offers, or 0. */
     @Volatile private var fakeVersionCode = 0
 
+    /** Load what an earlier process learned. Safe to call repeatedly. */
+    fun restore(context: Context) {
+        if (restored) return
+        restored = true
+        val prefs = BebecupPrefs(context)
+        lastCheckedAt = prefs.updateLastCheckedAtMillis
+        _dismissed.value = prefs.updateDismissedVersionCode
+        // An answer saved before the user updated is no longer news.
+        _available.value = StoreUpdateDecision
+            .offeredVersionCode(true, prefs.updateOfferedVersionCode, BuildConfig.VERSION_CODE)
+            .takeIf { it > 0 }
+    }
+
     /**
      * Asks Play again when the last answer is older than [StoreUpdateDecision.RECHECK_MILLIS].
-     * Only a definite answer changes [available]; a failed check keeps what we knew.
+     * Only a definite answer changes [available]; a failed check keeps what we knew
+     * and is retried the next time the app comes to the foreground.
      */
     suspend fun checkIfStale(context: Context) {
+        val appContext = context.applicationContext
+        restore(appContext)
         if (!StoreUpdateDecision.isStale(lastCheckedAt, System.currentTimeMillis())) return
-        val answer = withTimeoutOrNull(TIMEOUT_MILLIS) { query(context.applicationContext) } ?: return
+        val prefs = BebecupPrefs(appContext)
+        val answer = withTimeoutOrNull(TIMEOUT_MILLIS) { query(appContext) }
+        if (answer == null) {
+            val failures = prefs.updateCheckFailures + 1
+            prefs.updateCheckFailures = failures
+            // A sideloaded or non-Play copy fails every time; say how long it has been failing.
+            Log.w(TAG, "Play gave no update answer ($failures in a row)")
+            return
+        }
+        val now = System.currentTimeMillis()
         _available.value = answer.takeIf { it > 0 }
-        lastCheckedAt = System.currentTimeMillis()
+        lastCheckedAt = now
+        prefs.updateOfferedVersionCode = answer
+        prefs.updateLastCheckedAtMillis = now
+        prefs.updateCheckFailures = 0
+    }
+
+    /** Hide the banner for [versionCode]; a later version shows it again. */
+    fun dismiss(context: Context, versionCode: Int) {
+        BebecupPrefs(context).updateDismissedVersionCode = versionCode
+        _dismissed.value = versionCode
     }
 
     /** The offered versionCode, 0 when there is none, or null when Play could not answer. */
@@ -67,8 +111,8 @@ object StoreUpdates {
     } catch (e: CancellationException) {
         throw e // the timeout above, or the screen went away
     } catch (e: Exception) {
-        // Not installed from Play, no Play Store, offline: nothing to show.
-        Log.i(TAG, "Play could not check for updates: $e")
+        // Not installed from Play, no Play Store, offline.
+        Log.w(TAG, "Play could not check for updates", e)
         null
     }
 
@@ -131,4 +175,8 @@ object StoreUpdateDecision {
      */
     fun offeredVersionCode(updateAvailable: Boolean, availableVersionCode: Int, installedVersionCode: Int): Int =
         if (updateAvailable && availableVersionCode > installedVersionCode) availableVersionCode else 0
+
+    /** The versionCode to show a banner for: offered and not closed by the user, else null. */
+    fun bannerVersionCode(available: Int?, dismissedVersionCode: Int): Int? =
+        available?.takeIf { it > 0 && it != dismissedVersionCode }
 }

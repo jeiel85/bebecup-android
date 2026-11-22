@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.bebecup.app.ai.AiModelAvailability
 import com.bebecup.app.ai.FaceModelInstaller
@@ -31,6 +32,7 @@ import com.bebecup.app.domain.nudge.NudgePolicy
 import com.bebecup.app.domain.profile.BabyAge
 import com.bebecup.app.domain.profile.CalendarDate
 import com.bebecup.app.domain.tournament.TournamentEngine
+import com.bebecup.app.domain.tournament.TournamentSnapshots
 import com.bebecup.app.domain.usecase.AnalyzePhotoQualityUseCase
 import com.bebecup.app.domain.usecase.BuildAiShortlistUseCase
 import com.bebecup.app.domain.usecase.BuildRejectedListUseCase
@@ -44,6 +46,7 @@ import com.bebecup.app.nudge.UnsortedPhotoCounter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -78,7 +81,11 @@ sealed interface UiScreen {
     object Settings : UiScreen
 }
 
-class BabyCupViewModel(application: Application) : AndroidViewModel(application) {
+class BabyCupViewModel(
+    application: Application,
+    /** Survives Android ending the app in the background; holds an unfinished world cup. */
+    private val savedState: SavedStateHandle = SavedStateHandle()
+) : AndroidViewModel(application) {
 
     private val prefs = BebecupPrefs(application)
     private val repository: BabyPhotoRepository
@@ -171,6 +178,12 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
         private set
     private var aiScanWindowEndMillis = 0L
 
+    // ---------------- Kept photos whose file is gone ----------------
+
+    var missingPhotoIds by mutableStateOf<Set<Int>>(emptySet())
+        private set
+    private var missingCheck: Job? = null
+
     // ---------------- World cup ----------------
 
     private var engine: TournamentEngine<BabyPhoto>? = null
@@ -201,7 +214,7 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
             sessionDao = database.aiCurationSessionDao()
         )
         val photoQualityAnalyzer = PhotoQualityAnalyzer(metadataReader, FaceQualityAnalyzer())
-        scanRecentPhotos = ScanRecentBabyPhotosUseCase(repository, mediaSource)
+        scanRecentPhotos = ScanRecentBabyPhotosUseCase(repository, mediaSource, metadataReader::readTakenDate)
         analyzePhotoQuality = AnalyzePhotoQualityUseCase(aiRepository, photoQualityAnalyzer)
         clusterDuplicates = ClusterDuplicatesUseCase(aiRepository)
         explainTopPhotos = ExplainTopPhotosUseCase(repository, aiRepository, AiModelAvailability().explainer())
@@ -214,7 +227,8 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
         printCartPhotos = repository.printCartPhotos.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
         tournaments = repository.allTournaments.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-        fixPickedPhotoDates()
+        fixKeptPhotoDates()
+        restoreTournament()
     }
 
     // ================= Navigation =================
@@ -228,31 +242,43 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
         } else {
             backStack.add(currentScreen)
         }
-        currentScreen = screen
+        show(screen)
     }
 
     /** Replace the current screen without changing depth (transient hand-offs). */
     private fun navigateReplace(screen: UiScreen) {
-        currentScreen = screen
+        show(screen)
     }
 
     fun navigateHome() {
         backStack.clear()
-        currentScreen = UiScreen.Dashboard
+        show(UiScreen.Dashboard)
     }
 
     /** Land on [screen] with only home beneath it (terminal screens). */
     private fun navigateAsRoot(screen: UiScreen) {
         backStack.clear()
         backStack.add(UiScreen.Dashboard)
-        currentScreen = screen
+        show(screen)
     }
 
     /** Pop one level; false at the root so the OS can leave the app. */
     fun navigateBack(): Boolean {
         if (backStack.isEmpty()) return false
-        currentScreen = backStack.removeAt(backStack.size - 1)
+        show(backStack.removeAt(backStack.size - 1))
         return true
+    }
+
+    /**
+     * Every screen change goes through here. Leaving the play screen abandons
+     * the bracket (there is no way back into it), so it is not restored later.
+     */
+    private fun show(screen: UiScreen) {
+        currentScreen = screen
+        if (screen !is UiScreen.WorldCupPlay && engine != null) {
+            engine = null
+            saveTournament(null)
+        }
     }
 
     /**
@@ -424,6 +450,7 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
                 }
                 aiFaceModelProgress = null
                 aiProgressStep = STEP_SCAN
+                aiRepository.deleteStaleAnalyses()
 
                 sessionId = aiRepository.startSession(
                     AiCurationSessionEntity(
@@ -452,10 +479,14 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
                     aiClusterCount = clusterDuplicates(System.currentTimeMillis())
                 }
 
-                explainTopPhotos(ExplainTopPhotosUseCase.DEFAULT_LIMIT)
+                val scannedIds = photos.map { it.id }.toSet()
+                explainTopPhotos(
+                    limit = ExplainTopPhotosUseCase.DEFAULT_LIMIT,
+                    photoIds = scannedIds,
+                    excludeBlurry = aiExcludeBlurry
+                )
 
                 aiProgressStep = STEP_SHORTLIST
-                val scannedIds = photos.map { it.id }.toSet()
                 val analyzedInScan = aiRepository.getAnalyzedPhotoIds().count { it in scannedIds }
                 val shortlist = buildAiShortlist(
                     limit = BuildAiShortlistUseCase.DEFAULT_LIMIT,
@@ -516,6 +547,9 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
         val endMillis = aiScanWindowEndMillis.takeIf { it > 0 } ?: System.currentTimeMillis()
         viewModelScope.launch {
             repository.markBest(approved.map { it.photo.id }, System.currentTimeMillis())
+            // Every scan adds a row per gallery photo; keep only what the family kept.
+            val pruned = repository.pruneUnkeptPhotos()
+            if (pruned > 0) Log.i(TAG, "dropped $pruned scanned photos that were not kept")
             prefs.lastReviewedAtMillis = maxOf(prefs.lastReviewedAtMillis, endMillis)
             lastReviewedAtMillis = prefs.lastReviewedAtMillis
             unsortedCount = if (canReadPhotos) 0 else null
@@ -585,19 +619,41 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
     }
 
     /**
-     * Photos picked by hand before v0.8 were stored with the day they were
-     * picked. Re-read their capture date once so ages come out right; a photo
-     * that can no longer be opened keeps its old date.
+     * Before the channel split (after v0.9.0), photos picked by hand were stored with the day they were
+     * picked and scanned photos with the gallery's date, which can be the day a
+     * messenger saved the file. Re-read every kept photo's capture date once so
+     * ages come out right; a photo that can no longer be opened keeps its date.
      */
-    private fun fixPickedPhotoDates() {
-        if (prefs.pickedPhotoDatesFixed) return
+    private fun fixKeptPhotoDates() {
+        if (prefs.keptPhotoDatesFixed) return
         viewModelScope.launch {
-            repository.getPhotosByTitle(PICKED_PHOTO_TITLE).forEach { photo ->
+            repository.getKeptPhotos().forEach { photo ->
                 val taken = metadataReader.readTakenDate(Uri.parse(photo.uriString))
                 if (taken != null && taken != photo.takenDate) repository.updateTakenDate(photo.id, taken)
             }
-            prefs.pickedPhotoDatesFixed = true
+            prefs.keptPhotoDatesFixed = true
         }
+    }
+
+    /**
+     * Look for kept photos whose file was deleted from the gallery, so the
+     * screen can offer to take them out. Only a definite "not found" counts.
+     */
+    fun findMissingPhotos(photos: List<BabyPhoto>) {
+        missingCheck?.cancel()
+        missingCheck = viewModelScope.launch {
+            missingPhotoIds = photos.distinctBy { it.id }
+                .filter { metadataReader.isGone(Uri.parse(it.uriString)) }
+                .mapTo(HashSet()) { it.id }
+        }
+    }
+
+    /** Take photos found by [findMissingPhotos] out of the 보관함 and 인화함. */
+    fun removeMissingPhotos() {
+        val ids = missingPhotoIds.toList()
+        if (ids.isEmpty()) return
+        missingPhotoIds = emptySet()
+        viewModelScope.launch { repository.deletePhotos(ids) }
     }
 
     fun removeFromBest(photo: BabyPhoto) {
@@ -654,6 +710,7 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
     private fun launchTournament(entrants: List<BabyPhoto>, asRoot: Boolean) {
         val newEngine = TournamentEngine(entrants.shuffled())
         engine = newEngine
+        saveTournament(newEngine)
         syncMatchState(newEngine)
         if (asRoot) navigateAsRoot(UiScreen.WorldCupPlay) else navigateTo(UiScreen.WorldCupPlay)
     }
@@ -663,6 +720,7 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
         val e = engine ?: return
         if (!e.vote(match, winner)) return
         viewModelScope.launch { repository.incrementMatchWins(winner.id) }
+        saveTournament(e)
         syncMatchState(e)
         e.champion?.let { declareChampion(it, e.bracketSize) }
     }
@@ -675,6 +733,7 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
 
     private fun declareChampion(winner: BabyPhoto, bracketSize: Int) {
         engine = null
+        saveTournament(null)
         val month = playingMonth
         // Show the winner right away; recording it must not hold the screen
         // hostage to disk I/O (a slow device would sit on a blank play screen).
@@ -698,6 +757,47 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
                 // entry is missing, so log it rather than interrupt them.
                 Log.e(TAG, "could not record the tournament result", e)
             }
+        }
+    }
+
+    /** Keep [e]'s unfinished bracket (as photo ids) in [savedState]; null forgets it. */
+    private fun saveTournament(e: TournamentEngine<BabyPhoto>?) {
+        val snapshot = e?.snapshot()
+        if (snapshot == null) {
+            savedState.remove<IntArray>(KEY_TOURNAMENT)
+            savedState.remove<Int>(KEY_AI_TOP_PICK)
+            savedState.remove<String>(KEY_MONTH)
+            return
+        }
+        savedState[KEY_TOURNAMENT] = TournamentSnapshots.encode(snapshot.map { it.id })
+        savedState[KEY_AI_TOP_PICK] = aiTopPickId ?: 0
+        savedState[KEY_MONTH] = playingMonth
+    }
+
+    /**
+     * Android may end the app while the family is in another app mid-bracket.
+     * Coming back, put them on the match they left, as long as every photo in
+     * it still exists; otherwise forget the bracket.
+     */
+    private fun restoreTournament() {
+        val saved = TournamentSnapshots.decode(savedState.get<IntArray>(KEY_TOURNAMENT)) ?: return
+        viewModelScope.launch {
+            val photos = (saved.pool + saved.winners).distinct().associateWith { repository.getPhotoById(it) }
+            val restored = if (photos.values.all { it != null }) {
+                TournamentEngine.restore(saved.map { photos.getValue(it)!! })
+            } else {
+                null
+            }
+            if (restored == null || currentScreen != UiScreen.Dashboard) {
+                Log.w(TAG, "could not resume the world cup")
+                saveTournament(null)
+                return@launch
+            }
+            aiTopPickId = savedState.get<Int>(KEY_AI_TOP_PICK)?.takeIf { it > 0 }
+            playingMonth = savedState.get<String>(KEY_MONTH)
+            engine = restored
+            syncMatchState(restored)
+            navigateAsRoot(UiScreen.WorldCupPlay)
         }
     }
 
@@ -726,6 +826,9 @@ class BabyCupViewModel(application: Application) : AndroidViewModel(application)
         private const val TAG = "BabyCupViewModel"
         private const val DAY_MILLIS = 24L * 60L * 60L * 1000L
         private const val MAX_BABY_NAME = 20
+        private const val KEY_TOURNAMENT = "tournament"
+        private const val KEY_AI_TOP_PICK = "tournament_ai_top_pick"
+        private const val KEY_MONTH = "tournament_month"
 
         /** Title of photos the parent added by hand with the Photo Picker. */
         const val PICKED_PHOTO_TITLE = "직접 고른 사진"
