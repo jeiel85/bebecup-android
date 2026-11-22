@@ -53,6 +53,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) viewModel.handleLaunchIntent(intent)
         UpdateChannel.handleDebugLaunch(intent)
+        UpdateChannel.onAppStart(this)
         setContent {
             val dark = viewModel.themeMode.isDark()
             // Status/navigation bar icons follow BebeCup's theme (설정 > 화면 테마), not the phone's.

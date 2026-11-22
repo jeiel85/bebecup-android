@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- GitHub build: overrides src/main/res/xml/file_paths.xml. Keep the print_share entry in sync with it. -->
-<paths>
-    <!-- Temporary print-share copies. -->
-    <cache-path name="print_share" path="print_share/" />
-    <!-- The downloaded, SHA-256-checked update APK handed to Android's installer. -->
-    <cache-path name="updates" path="updates/" />
-</paths>

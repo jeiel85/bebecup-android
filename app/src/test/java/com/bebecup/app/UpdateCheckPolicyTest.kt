@@ -2,6 +2,7 @@ package com.bebecup.app
 
 import com.bebecup.app.update.UpdateCheckPolicy
 import com.bebecup.app.update.UpdateStatus
+import com.bebecup.app.update.VersionParticles
 import com.bebecup.app.update.offersUpdate
 import com.bebecup.app.update.versionName
 import org.junit.Assert.assertEquals
@@ -37,8 +38,21 @@ class UpdateCheckPolicyTest {
     fun bannerKeepsTheVersionThroughDownloadAndFailure() {
         assertEquals("0.9.0", UpdateStatus.Available("0.9.0", 10).versionName)
         assertEquals("0.9.0", UpdateStatus.Downloading("0.9.0", null).versionName)
+        assertTrue(UpdateStatus.Installing("0.9.0").offersUpdate)
+        assertEquals("0.9.0", UpdateStatus.Installing("0.9.0").versionName)
         assertEquals("0.9.0", UpdateStatus.ReadyToInstall("0.9.0").versionName)
         assertEquals("0.9.0", UpdateStatus.DownloadFailed("0.9.0", "x").versionName)
         assertNull(UpdateStatus.UpToDate.versionName)
+    }
+
+    @Test
+    fun versionParticlesFollowTheLastDigit() {
+        assertEquals("0.11.1이", VersionParticles.subject("0.11.1"))
+        assertEquals("0.12.2가", VersionParticles.subject("0.12.2"))
+        assertEquals("0.11.0이", VersionParticles.subject("0.11.0"))
+        assertEquals("0.11.0으로", VersionParticles.direction("0.11.0"))
+        assertEquals("0.11.1로", VersionParticles.direction("0.11.1"))
+        assertEquals("0.11.3으로", VersionParticles.direction("0.11.3"))
+        assertEquals("0.11.4로", VersionParticles.direction("0.11.4"))
     }
 }

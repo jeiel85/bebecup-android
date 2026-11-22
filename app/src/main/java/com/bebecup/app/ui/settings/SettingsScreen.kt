@@ -47,6 +47,7 @@ import com.bebecup.app.ui.viewmodel.BabyCupViewModel
 import com.bebecup.app.ui.viewmodel.FaceModelState
 import com.bebecup.app.update.UpdateChannel
 import com.bebecup.app.update.UpdateStatus
+import com.bebecup.app.update.VersionParticles
 import kotlinx.coroutines.launch
 
 @Composable
@@ -282,9 +283,10 @@ private fun AppUpdateCard() {
             UpdateStatus.Checking -> "새 버전이 있는지 확인하는 중이에요"
             UpdateStatus.UpToDate -> "최신 버전(${BuildConfig.VERSION_NAME})을 쓰고 있어요."
             is UpdateStatus.CheckFailed -> status.reason
-            is UpdateStatus.Available -> status.versionName?.let { "새 버전 ${it}이 나왔어요." } ?: "새 버전이 나왔어요."
+            is UpdateStatus.Available -> status.versionName?.let { "새 버전 ${VersionParticles.subject(it)} 나왔어요." } ?: "새 버전이 나왔어요."
             is UpdateStatus.Downloading -> status.progress?.let { "받는 중이에요 ${(it * 100).toInt()}%" } ?: "받는 중이에요"
             is UpdateStatus.ReadyToInstall -> "다 받았어요. '설치'를 눌러 주세요."
+            is UpdateStatus.Installing -> "설치하는 중이에요. Android가 물어보면 '업데이트'를 눌러 주세요."
             is UpdateStatus.DownloadFailed -> status.reason
         }
         Text(
@@ -313,6 +315,7 @@ private fun AppUpdateCard() {
                     fontSize = 13.sp
                 )
             }
+            is UpdateStatus.Installing -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(8.dp))
             is UpdateStatus.Downloading -> {
                 val progress = status.progress
                 if (progress != null) {
@@ -331,6 +334,7 @@ private fun AppUpdateCard() {
                 shape = RoundedCornerShape(14.dp)
             ) { Text("업데이트 확인", fontSize = 13.sp) }
         }
+        UpdateChannel.AutoUpdateOptions()
         Caption(UpdateChannel.SETTINGS_CAPTION)
     }
 }

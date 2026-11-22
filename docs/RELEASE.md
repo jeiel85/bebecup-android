@@ -45,6 +45,8 @@ Play App Signing을 사용하므로 사용자에게 배포되는 서명 키는 G
 
 이 키를 잃으면 GitHub APK 사용자는 다음 버전을 덮어 설치할 수 없다. 드라이브 백업을 지우지 않는다.
 
+같은 지문이 세 곳에 있다: 이 표, 릴리스 워크플로의 `GITHUB_APK_SHA256`, 앱의 `UPDATE_SIGNER_SHA256`(`app/build.gradle.kts`, GitHub 빌드 업데이터가 설치본 서명과 비교). 키를 바꾸면 셋을 함께 고친다. 에뮬레이터에서 디버그 키로 업데이트를 시험할 때는 `-Pbebecup.updateSignerSha256=<디버그 키 SHA-256>`으로 빌드한다.
+
 ## Local Signed Release Build
 
 GitHub APK는 `.keystore/github-release-signing.properties`가 있으면 로컬에서 서명된다.

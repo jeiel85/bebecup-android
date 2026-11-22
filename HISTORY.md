@@ -7,6 +7,7 @@
 - **변경**: `proguard-rules.pro`에 `ComponentRegistrar` 구현체의 `<init>()` keep, CI가 두 채널 `seeds.txt`로 세 생성자를 확인. 테마는 밝게 기본 + 설정에서 선택(`ThemeMode`, container·surfaceContainer 색 지정, 시스템 바 아이콘 색 연동). 설정에 화면 테마·얼굴 인식 기능(Play: 상태·지금 받기, GitHub: 내장)·앱 업데이트(상태·업데이트 확인) 카드. GitHub 빌드에 앱 내 업데이트(`GithubUpdates`: `update.json` 확인 → APK 받기 → 크기·SHA-256 확인 → Android 설치 화면, Markleaf·Homebase와 같은 방식)를 `src/github`에만 넣고, 릴리스 워크플로가 `update.json`을 붙임(`DECISIONS.md`).
 - **진행 중 겹침**: 작업 중 다른 세션이 v0.9.0·v0.10.0(채널 분리)을 내서, 처음 만든 flavor 분리는 버리고 main 구조(`UpdateChannel`, flavor별 `FaceModelInstaller`) 위에 다시 얹음.
 - **검증**: R8 릴리스 빌드(디버그 키 재서명)를 에뮬레이터에서 확인 — GitHub 빌드로 맡기기→보관→월드컵→인화함 전체 흐름, Play 빌드는 NPE 없음(모델 받기는 에뮬레이터에 Play 계정이 없어 미확인). 세부는 PR #23.
+- **자동 업데이트 보강**: 사용자 요청으로 포너디·Homebase의 업데이터를 따라 12시간 백그라운드 확인(WorkManager)·버전당 한 번 알림·`PackageInstaller` 세션 설치(Android 12+ 앱을 쓰지 않을 때 확인 없이)·설치 뒤 "업데이트했어요" 알림·받은 APK의 패키지/버전 확인·서명 키 사전 확인을 넣음. 에뮬레이터(API 36·29)에서 디버그 훅으로 확인: 화면에서 설치, 백그라운드 무확인 설치, 앱이 보일 때는 알림만, API 29 확인 화면·취소 후 재시도.
 - **릴리스**: v0.11.0(versionCode 12). `update.json`을 붙이는 첫 릴리스라, v0.10.0 GitHub 앱 사용자는 이번만 직접 받아 설치해야 하고 v0.12.0부터 앱 안에서 업데이트됨.
 
 ## 2026-11-22 (하드닝 #18: 이달의 월드컵)

@@ -1,5 +1,6 @@
 package com.bebecup.app.update
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
@@ -22,6 +23,10 @@ object UpdateChannel {
     const val LABEL = "Google Play"
 
     private const val EXTRA_DEBUG_FAKE_UPDATE = "debug_fake_update"
+
+    /** MainActivity.onCreate. Play installs updates itself, so there is nothing to schedule. */
+    @Suppress("UNUSED_PARAMETER")
+    fun onAppStart(activity: Activity) = Unit
 
     /** The last answer to 설정 > 업데이트 확인 in this process; home's background checks feed [StoreUpdates.available]. */
     private val manual = MutableStateFlow<UpdateStatus>(UpdateStatus.Unknown)
@@ -90,6 +95,10 @@ object UpdateChannel {
             else -> UpdateStatus.UpToDate
         }
     }
+
+    /** 설정 > 앱 업데이트 options: none, Play decides when to update. */
+    @Composable
+    fun AutoUpdateOptions() = Unit
 
     /** "Play 스토어에서 업데이트": Play does the installing. */
     fun startUpdate(context: Context) = StoreUpdates.openStore(context)

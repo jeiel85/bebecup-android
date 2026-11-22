@@ -6,17 +6,25 @@
 
 ### 배경
 
-아래 "채널별 빌드" 결정은 GitHub 빌드 업데이터를 수요가 확인될 때 `github` 소스셋에만 넣기로 했다. 사용자가 다른 앱(Markleaf·Homebase)처럼
-자동 업데이트 확인을 직접 요청했다.
+아래 "채널별 빌드" 결정은 GitHub 빌드 업데이터를 수요가 확인될 때 `github` 소스셋에만 넣기로 했다. 사용자가 다른 앱(Markleaf·Homebase·포너디)처럼
+자동 업데이트 확인을 직접 요청했고, 이어서 포너디·Homebase의 방식(백그라운드 확인·알림·확인 없는 설치)을 그대로 따르라고 했다.
 
 ### 결정
 
 - `src/github`에만 `update/GithubUpdates`와 `INTERNET`·`REQUEST_INSTALL_PACKAGES`를 둔다. `play` 빌드는 그대로 Play In-App Updates로 확인만 한다.
 - 릴리스 워크플로가 GitHub Release에 `update.json`(`versionCode`, `versionName`, `apk`, `sha256`, `size`)을 붙인다. 앱은
-  `releases/latest/download/update.json`을 홈이 앞에 올 때 최대 6시간에 한 번, 설정에서 누를 때 읽는다.
+  `releases/latest/download/update.json`을 홈이 앞에 올 때 최대 6시간에 한 번, 설정에서 누를 때, 그리고 WorkManager로 12시간마다
+  (네트워크 있을 때, 설정 "앱을 열지 않아도 새 버전 확인", 기본 켬) 읽는다. 백그라운드 확인은 버전마다 알림을 한 번 띄운다.
 - APK 주소는 파일에서 받지 않고 저장소·`v<versionName>` 태그·파일 이름으로 앱이 만든다(파일이 바뀌어도 이 저장소 릴리스 자산만 가리킴).
-  형식이 조금이라도 다르면 무시한다. 사용자가 누를 때만 받고, 크기·SHA-256이 맞을 때만 Android 설치 화면(`ACTION_INSTALL_PACKAGE`)에 넘긴다.
-  서명이 다른 APK는 Android가 거부한다(GitHub 키 고정).
+  형식이 조금이라도 다르면 무시한다. 받은 APK는 크기·SHA-256, 패키지 이름·versionCode가 맞을 때만 설치한다.
+  서명이 다른 APK는 Android가 거부하므로, 설치본 서명이 GitHub 키(`UPDATE_SIGNER_SHA256`)가 아니면 받기 전에 "지우고 새로 설치"를 안내한다.
+- 설치는 `PackageInstaller` 세션(`USER_ACTION_NOT_REQUIRED`, API 34+ `setRequestUpdateOwnership`)으로 한다(포너디와 같음, Homebase는
+  화면에서 누를 때 `ACTION_INSTALL_PACKAGE`). 세션으로 설치해야 이 앱이 설치자로 기록되고, Android 12+는 앱이 자기 자신을 업데이트할 때
+  확인을 생략한다(에뮬레이터 API 36에서 다른 설치자로 깔린 경우도 확인 없이 설치됨, API 29는 확인 화면). Android 11 이하나 확인을 요구받으면
+  화면에서는 확인 화면을 띄우고, 백그라운드에서는 세션을 버리고 알림으로 알린다.
+- 앱이 화면에 없고(`AppVisibility`), 설정 "앱을 쓰지 않을 때 자동으로 설치"(기본 켬, Android 12+)가 켜져 있으면 백그라운드 확인이 받아서
+  확인 없이 설치하고, 새 프로세스의 `MY_PACKAGE_REPLACED`에서 "업데이트했어요"를 알린다. 같은 버전이 두 번 실패하거나 확인을 요구받으면
+  그 버전은 알림으로 넘긴다(`AutoUpdatePolicy`, 단위 테스트로 고정).
 - 홈 배너 닫기는 Play와 같은 prefs 키(versionCode별)를 쓴다. 채널마다 다른 빌드라 섞이지 않는다.
 
 ### 되돌리기·재검토 조건
