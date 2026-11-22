@@ -10,6 +10,7 @@
 - **빌드 경고(#3·#8)**: Room `fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)`, AGP `assets.directories`, 어노테이션 대상 경고, Play AAB에 네이티브 기호 표(`debugSymbolLevel`).
 - **개인정보(#8·#15)**: ML Kit 지표 전송을 끄지 않고 방침·README·랜딩·설정 문구를 사실대로 고침(`DECISIONS.md`). Play 데이터 보안 양식은 사용자가 고칠 몫.
 - **이월**: 형제자매(다자녀) 지원, 넛지의 아기 사진 판별 → `BACKLOG.md`.
+- **릴리스**: v0.10.0(versionCode 11)으로 GitHub 릴리스와 Play 비공개 테스트 - Alpha에 함께 올림. 채널 분리 후 첫 릴리스라 GitHub APK는 새 키로 서명됨.
 - **검증**: PR에 기록.
 ## 2026-11-21 (이달의 월드컵)
 
