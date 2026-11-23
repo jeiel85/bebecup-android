@@ -43,6 +43,10 @@ fun AiCurationResultScreen(viewModel: BabyCupViewModel) {
     val approvedCount = viewModel.aiApprovedIds.size
     var showRejected by rememberSaveable { mutableStateOf(false) }
     var whoPhoto by remember { mutableStateOf<BabyPhoto?>(null) }
+    // Siblings: "바로 월드컵" is one child's cup, picked here when several can have one.
+    var pickCupChild by remember { mutableStateOf(false) }
+    val perChild = viewModel.cupsPerChild
+    val cupChoices = if (perChild) viewModel.curationCupChoices() else emptyList()
     val showNames = viewModel.children.size >= 2 || viewModel.faceIdState == FaceIdState.READY
 
     Column(
@@ -174,17 +178,28 @@ fun AiCurationResultScreen(viewModel: BabyCupViewModel) {
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Button(
-                        onClick = { viewModel.saveCurationRound(thenPlay = true) },
+                        onClick = {
+                            when {
+                                !perChild -> viewModel.saveCurationRound(thenPlay = true)
+                                cupChoices.size == 1 -> viewModel.saveCurationRound(thenPlay = true, child = cupChoices.single().first.id)
+                                else -> pickCupChild = true
+                            }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp)
                             .testTag("start_worldcup_from_ai_btn"),
                         shape = RoundedCornerShape(16.dp),
-                        enabled = approvedCount >= 2
+                        enabled = if (perChild) cupChoices.isNotEmpty() else approvedCount >= 2
                     ) {
                         Text(
-                            if (approvedCount >= 2) "${approvedCount}장 보관하고 바로 월드컵"
-                            else "월드컵은 2장 이상부터 할 수 있어요",
+                            when {
+                                !perChild && approvedCount >= 2 -> "${approvedCount}장 보관하고 바로 월드컵"
+                                !perChild -> "월드컵은 2장 이상부터 할 수 있어요"
+                                cupChoices.size == 1 -> "${approvedCount}장 보관하고 ${cupChoices.single().first.name} 월드컵"
+                                cupChoices.isNotEmpty() -> "${approvedCount}장 보관하고 아이별 월드컵"
+                                else -> "월드컵은 아이마다 2장 이상부터 할 수 있어요"
+                            },
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 15.sp
                         )
@@ -208,6 +223,35 @@ fun AiCurationResultScreen(viewModel: BabyCupViewModel) {
 
     whoPhoto?.let { photo ->
         PhotoChildrenDialog(viewModel = viewModel, photo = photo, onDismiss = { whoPhoto = null })
+    }
+
+    if (pickCupChild) {
+        AlertDialog(
+            onDismissRequest = { pickCupChild = false },
+            title = { Text("누구의 월드컵부터 할까요?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "형제끼리 겨루지 않도록 아이마다 따로 해요. 다른 아이의 월드컵은 보관함에서 이어서 열 수 있어요.",
+                        fontSize = 13.sp
+                    )
+                    cupChoices.forEach { (child, count) ->
+                        OutlinedButton(
+                            onClick = {
+                                pickCupChild = false
+                                viewModel.saveCurationRound(thenPlay = true, child = child.id)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("ai_cup_child_${child.id}"),
+                            shape = RoundedCornerShape(14.dp)
+                        ) { Text("${child.name} · ${count}장", fontWeight = FontWeight.Bold) }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { pickCupChild = false }) { Text("닫기") } }
+        )
     }
 }
 

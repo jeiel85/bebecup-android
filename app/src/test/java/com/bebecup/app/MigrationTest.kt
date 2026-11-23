@@ -3,8 +3,12 @@ package com.bebecup.app
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.db.SupportSQLiteOpenHelper
+import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import com.bebecup.app.data.ALL_MIGRATIONS
 import com.bebecup.app.data.AppDatabase
+import com.bebecup.app.data.MIGRATION_6_7
 import com.bebecup.app.data.ai.PhotoAnalysisEntity
 import com.bebecup.app.data.children.ChildEntity
 import com.bebecup.app.data.children.FaceReferenceEntity
@@ -115,7 +119,8 @@ class MigrationTest {
         assertEquals(1, cups.size)
         assertEquals(8, cups.single().totalParticipants)
         assertNull(cups.single().monthKey)
-        assertEquals(emptyList<String>(), room.babyPhotoDao().getMonthlyCupKeys())
+        assertEquals(emptyList<Any>(), room.babyPhotoDao().getMonthlyCups())
+        assertNull(cups.single().childId)
 
         room.close()
     }
@@ -155,6 +160,55 @@ class MigrationTest {
         assertEquals(FaceState.UNKNOWN, face.state)
         assertEquals(emptyList<Any>(), dao.getReferences(1))
 
+        room.close()
+    }
+
+    @Test
+    fun `v7 gives v0_12 child cups their child back from the title`() = runBlocking {
+        createV2Database()
+        // Bring the v2 file to v6 with the real migrations, then add v0.12.0 data.
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(dbName)
+                .callback(object : SupportSQLiteOpenHelper.Callback(6) {
+                    override fun onCreate(db: SupportSQLiteDatabase) = Unit
+                    override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
+                        ALL_MIGRATIONS.filter { it.endVersion <= 6 }.forEach { it.migrate(db) }
+                    }
+                })
+                .build()
+        )
+        helper.writableDatabase.apply {
+            // 윤 is the end of 도윤: it must not claim 도윤's cups.
+            execSQL("INSERT INTO children (id, name, birthDate, createdAtMillis) VALUES (1, '하린', '', 1), (2, '도윤', '', 2), (3, '윤', '', 3)")
+            fun cup(title: String, month: String?) = execSQL(
+                "INSERT INTO tournament_records " +
+                    "(winnerPhotoId, winnerTitle, winnerUriString, timestamp, totalParticipants, tournamentTitle, monthKey) " +
+                    "VALUES (1, '우리 아기', 'content://legacy/1', 1, 4, ?, ?)",
+                arrayOf(title, month)
+            )
+            cup("하린 이상형 월드컵", null)
+            cup("2026년 10월의 도윤 월드컵", "2026-10")
+            cup("2026년 10월의 월드컵", "2026-10")
+            cup("윤 이상형 월드컵", null)
+        }
+        helper.close()
+
+        val room = Room.databaseBuilder(context, AppDatabase::class.java, dbName)
+            .addMigrations(MIGRATION_6_7)
+            .allowMainThreadQueries()
+            .build()
+        val childByTitle = room.babyPhotoDao().getAllTournaments().first().associate { it.tournamentTitle to it.childId }
+        assertEquals(
+            mapOf(
+                "베스트 아기사진 이상형 월드컵" to null,
+                "하린 이상형 월드컵" to 1L,
+                "2026년 10월의 도윤 월드컵" to 2L,
+                "2026년 10월의 월드컵" to null,
+                "윤 이상형 월드컵" to 3L
+            ),
+            childByTitle
+        )
         room.close()
     }
 }

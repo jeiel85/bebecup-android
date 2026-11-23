@@ -111,7 +111,7 @@ class MonthlyCupFlowTest {
         assertEquals(lastMonth, winner.monthKey)
         compose.onNodeWithTag("winner_title").assertTextContains("${viewModel.monthLabel(lastMonth)}의 사진!")
 
-        compose.waitUntil(timeoutMillis = 10_000) { runBlocking { dao.getMonthlyCupKeys() } == listOf(lastMonth) }
+        compose.waitUntil(timeoutMillis = 10_000) { runBlocking { dao.getMonthlyCups() }.map { it.monthKey } == listOf(lastMonth) }
 
         // Played: the home card is gone.
         compose.runOnIdle { viewModel.navigateHome() }

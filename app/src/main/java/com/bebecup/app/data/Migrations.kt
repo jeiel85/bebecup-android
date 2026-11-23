@@ -14,6 +14,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  *  - v4: + photo_analysis.dHash (near-duplicate clustering).
  *  - v5: + tournament_records.monthKey (이달의 월드컵).
  *  - v6: + children, photo_faces, face_references, baby_photos.faceIdVersion (아이 얼굴 구분).
+ *  - v7: + tournament_records.childId (아이별 월드컵).
  */
 
 /** v2 → v3: add the AI curation tables. Existing photos/tournaments are preserved. */
@@ -104,5 +105,28 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
     }
 }
 
+/**
+ * v6 → v7: tournament_records.childId, whose cup it was. v0.12.0 kept that
+ * only in the title ("하린 이상형 월드컵", "2026년 10월의 하린 월드컵"), so
+ * those cups get their child back when exactly one child's name fits the
+ * title; every other cup stays a family cup (null).
+ */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `tournament_records` ADD COLUMN `childId` INTEGER")
+        // No table alias: UPDATE ... AS needs a newer SQLite than old Android ships.
+        val title = "tournament_records.tournamentTitle"
+        val fits =
+            "(tournament_records.monthKey IS NULL AND $title = c.name || ' 이상형 월드컵') OR " +
+                "(tournament_records.monthKey IS NOT NULL AND " +
+                "substr($title, -length('의 ' || c.name || ' 월드컵')) = '의 ' || c.name || ' 월드컵')"
+        db.execSQL(
+            "UPDATE tournament_records SET childId = " +
+                "(SELECT c.id FROM children c WHERE $fits) " +
+                "WHERE (SELECT COUNT(*) FROM children c WHERE $fits) = 1"
+        )
+    }
+}
+
 /** All migrations, in order, for registration on the database builder. */
-val ALL_MIGRATIONS = arrayOf(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+val ALL_MIGRATIONS = arrayOf(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)

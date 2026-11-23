@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
@@ -34,6 +35,7 @@ import com.bebecup.app.data.media.PhotoAccess
 import com.bebecup.app.data.media.PhotoMetadataReader
 import com.bebecup.app.data.prefs.BebecupPrefs
 import com.bebecup.app.domain.model.ShortlistItem
+import com.bebecup.app.domain.children.cupsArePerChild
 import com.bebecup.app.domain.monthly.MonthlyCup
 import com.bebecup.app.domain.nudge.NudgePolicy
 import com.bebecup.app.domain.profile.BabyAge
@@ -81,8 +83,13 @@ sealed interface UiScreen {
     // ② 월드컵
     object WorldCupSetup : UiScreen
     object WorldCupPlay : UiScreen
-    /** [monthKey] is set for a 이달의 월드컵 ("yyyy-MM"). */
-    data class WorldCupWinner(val winner: BabyPhoto, val bracketSize: Int, val monthKey: String? = null) : UiScreen
+    /** [monthKey] is set for a 이달의 월드컵 ("yyyy-MM"); [childName] for one child's cup. */
+    data class WorldCupWinner(
+        val winner: BabyPhoto,
+        val bracketSize: Int,
+        val monthKey: String? = null,
+        val childName: String? = null
+    ) : UiScreen
     object TournamentHistoryList : UiScreen
 
     // ③ 인화
@@ -257,9 +264,12 @@ class BabyCupViewModel(
         private set
     /** Month of the cup being played; recorded with its winner. */
     private var playingMonth: String? = null
-    /** Child chosen on the setup screen; null = every saved photo. */
+    /** Child chosen on the setup screen; null = every saved photo (only without siblings). */
     var worldCupChildId by mutableStateOf<Long?>(null)
         private set
+
+    /** Siblings never compete: every cup is one child's ([cupsArePerChild]). */
+    val cupsPerChild: Boolean get() = cupsArePerChild(children.size)
     /** Child of the cup being played; its name goes into the recorded title. */
     private var playingChildId: Long? = null
     var monthlyCupSkippedMonth by mutableStateOf(prefs.monthlyCupSkippedMonth)
@@ -367,14 +377,16 @@ class BabyCupViewModel(
     fun handleLaunchIntent(intent: Intent?) {
         if (intent == null) return
         val month = intent.getStringExtra(NudgeNotifier.EXTRA_OPEN_MONTHLY_CUP)
+        val monthChild = intent.getLongExtra(NudgeNotifier.EXTRA_MONTHLY_CUP_CHILD, 0L).takeIf { it > 0 }
         val curation = intent.getBooleanExtra(NudgeNotifier.EXTRA_OPEN_CURATION, false)
         intent.removeExtra(NudgeNotifier.EXTRA_OPEN_MONTHLY_CUP)
+        intent.removeExtra(NudgeNotifier.EXTRA_MONTHLY_CUP_CHILD)
         intent.removeExtra(NudgeNotifier.EXTRA_OPEN_CURATION)
         if (!prefs.onboardingSeen) return
         when {
             month != null -> {
                 navigateHome()
-                openWorldCup(month)
+                openWorldCup(month, monthChild)
             }
             curation -> {
                 navigateHome()
@@ -810,8 +822,29 @@ class BabyCupViewModel(
         }
     }
 
+    /** A finished scan's result with every [shortlist] photo approved, as [startAiCuration] leaves it. */
+    @VisibleForTesting
+    internal fun showCurationResult(shortlist: List<ShortlistItem>) {
+        aiShortlist = shortlist
+        aiRejectedItems = emptyList()
+        aiApprovedIds.clear()
+        aiApprovedIds.addAll(shortlist.map { it.photo.id })
+        navigateTo(UiScreen.AiCurationResult)
+    }
+
     fun toggleShortlistApproval(photoId: Int) {
         if (aiApprovedIds.contains(photoId)) aiApprovedIds.remove(photoId) else aiApprovedIds.add(photoId)
+    }
+
+    /**
+     * With siblings: the children who have at least two approved photos in
+     * this round, with that count; "바로 월드컵" plays one of their cups.
+     */
+    fun curationCupChoices(): List<Pair<ChildEntity, Int>> {
+        val approved = approvedItems()
+        return children
+            .map { child -> child to approved.count { child.id in photoChildren[it.photo.id].orEmpty() } }
+            .filter { it.second >= 2 }
     }
 
     /** Approved items from the round, best-first (shortlist, then rescued rejects). */
@@ -823,8 +856,12 @@ class BabyCupViewModel(
      * the end of this scan count as "확인함" (the nudge resets). With
      * [thenPlay], immediately start a world cup with the approved photos.
      */
-    fun saveCurationRound(thenPlay: Boolean) {
+    fun saveCurationRound(thenPlay: Boolean, child: Long? = null) {
         val approved = approvedItems()
+        // With siblings the cup is [child]'s approved photos only; without a child it doesn't start.
+        val perChild = cupsPerChild
+        val contenders =
+            if (perChild) approved.filter { child != null && child in photoChildren[it.photo.id].orEmpty() } else approved
         val endMillis = aiScanWindowEndMillis.takeIf { it > 0 } ?: System.currentTimeMillis()
         viewModelScope.launch {
             repository.markBest(approved.map { it.photo.id }, System.currentTimeMillis())
@@ -837,14 +874,14 @@ class BabyCupViewModel(
             lastReviewedAtMillis = prefs.lastReviewedAtMillis
             unsortedCount = if (canReadPhotos) 0 else null
 
-            if (thenPlay && approved.size >= 2) {
+            if (thenPlay && contenders.size >= 2) {
                 // `approved` is score-ordered, so the bracket takes the top N
                 // and its first entry is the AI #1 the family is compared with.
-                val size = TournamentEngine.availableSizes(approved.size).last()
-                val entrants = approved.take(size)
+                val size = TournamentEngine.availableSizes(contenders.size).last()
+                val entrants = contenders.take(size)
                 aiTopPickId = entrants.first().photo.id
                 playingMonth = null
-                playingChildId = null
+                playingChildId = if (perChild) child else null
                 launchTournament(entrants.map { it.photo }, asRoot = true)
             } else {
                 navigateAsRoot(UiScreen.BestBox)
@@ -953,9 +990,13 @@ class BabyCupViewModel(
 
     // ================= ② 월드컵 =================
 
-    /** Open the cup setup, on [month]'s photos ("yyyy-MM") or on the latest saved ones. */
-    fun openWorldCup(month: String? = null) {
+    /**
+     * Open the cup setup, on [month]'s photos ("yyyy-MM") or on the latest
+     * saved ones; [child] picks whose cup (otherwise the last choice stays).
+     */
+    fun openWorldCup(month: String? = null, child: Long? = null) {
         worldCupMonth = month
+        if (child != null) worldCupChildId = child
         navigateTo(UiScreen.WorldCupSetup)
     }
 
@@ -968,14 +1009,30 @@ class BabyCupViewModel(
         worldCupChildId = childId
     }
 
-    /** Last month's cup when it is due (home card); see [MonthlyCup.pending]. */
-    fun pendingMonthlyCup(best: List<BabyPhoto>, records: List<TournamentRecord>): MonthlyCup.Month? =
+    /** Last month's cup when it is due (home card), and whose; see [MonthlyCup.pending]. */
+    fun pendingMonthlyCup(best: List<BabyPhoto>, records: List<TournamentRecord>): MonthlyCup.Due? =
         MonthlyCup.pending(
             today = MonthlyCup.today(),
-            takenDates = best.map { it.takenDate },
-            decided = records.mapNotNull { it.monthKey }.toSet(),
+            childIds = children.map { it.id },
+            photos = best.map { MonthlyCup.Photo(it.takenDate, photoChildren[it.id].orEmpty()) },
+            held = records.mapNotNull { r -> r.monthKey?.let { MonthlyCup.Held(it, r.childId) } },
             skippedKey = monthlyCupSkippedMonth
         )
+
+    /**
+     * Whose cup the setup opens on when no child is chosen: with siblings, of
+     * the children with at least two saved photos, the first who can hold
+     * [month]'s cup and has not yet (then any who can hold it, then the first
+     * one); null without siblings (the family cup) or when no child has two.
+     */
+    fun defaultCupChild(best: List<BabyPhoto>, month: String?, records: List<TournamentRecord>): Long? {
+        if (!cupsPerChild) return null
+        val able = children.filter { photosOf(best, it.id).size >= 2 }
+        if (month == null) return able.firstOrNull()?.id
+        val held = records.filter { it.monthKey == month }.mapNotNull { it.childId }.toSet()
+        val inMonth = able.filter { worldCupPool(best, month, it.id).size >= MonthlyCup.MIN_PHOTOS }
+        return (inMonth.firstOrNull { it.id !in held } ?: inMonth.firstOrNull() ?: able.firstOrNull())?.id
+    }
 
     /** "10월", with the year when it isn't this year. */
     fun monthLabel(monthKey: String): String = MonthlyCup.label(monthKey, MonthlyCup.today().year)
@@ -1002,6 +1059,7 @@ class BabyCupViewModel(
     /** Bracket of [size] from [month]'s saved photos, or the most recently saved ones, of the chosen child. */
     fun startWorldCup(size: Int, month: String? = worldCupMonth, child: Long? = worldCupChildId) {
         val childId = child?.takeIf { id -> children.any { it.id == id } }
+        if (childId == null && cupsPerChild) return // siblings never share a bracket
         val pool = worldCupPool(bestPhotos.value, month, childId)
         if (pool.size < 2) return
         aiTopPickId = null
@@ -1041,7 +1099,7 @@ class BabyCupViewModel(
         val childName = children.firstOrNull { it.id == playingChildId }?.name
         // Show the winner right away; recording it must not hold the screen
         // hostage to disk I/O (a slow device would sit on a blank play screen).
-        navigateAsRoot(UiScreen.WorldCupWinner(winner.copy(winsCount = winner.winsCount + 1), bracketSize, month))
+        navigateAsRoot(UiScreen.WorldCupWinner(winner.copy(winsCount = winner.winsCount + 1), bracketSize, month, childName))
         viewModelScope.launch {
             try {
                 repository.incrementChampionships(winner.id)
@@ -1052,7 +1110,8 @@ class BabyCupViewModel(
                         winnerUriString = winner.uriString,
                         totalParticipants = bracketSize,
                         tournamentTitle = cupTitle(month, childName),
-                        monthKey = month
+                        monthKey = month,
+                        childId = playingChildId
                     )
                 )
             } catch (e: Exception) {

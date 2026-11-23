@@ -61,9 +61,9 @@ fun TournamentHistoryListView(viewModel: BabyCupViewModel, tournaments: List<Tou
             }
             return@Column
         }
-        // A month played twice keeps one "N월의 사진": the latest cup.
+        // A month played twice keeps one "N월의 사진" (per child with siblings): the latest cup.
         val titleHolders = remember(tournaments) {
-            MonthlyCup.titleHolders(tournaments, { it.monthKey }, { it.timestamp }).map { it.id }.toSet()
+            MonthlyCup.titleHolders(tournaments, { it.monthKey }, { it.childId }, { it.timestamp }).map { it.id }.toSet()
         }
         LazyColumn(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -85,10 +85,12 @@ fun TournamentHistoryListView(viewModel: BabyCupViewModel, tournaments: List<Tou
                     ) {
                         BabyPhotoIllustration(item.winnerUriString, Modifier.size(72.dp))
                         Column(Modifier.padding(start = 14.dp)) {
+                            // A child's cup names the child (while they are still registered).
+                            val whose = viewModel.children.firstOrNull { it.id == item.childId }?.name?.let { "$it " }.orEmpty()
                             Text(
                                 item.monthKey?.takeIf { item.id in titleHolders }
-                                    ?.let { "👑 ${MonthlyCup.label(it, withYear = true)}의 사진 · ${item.totalParticipants}강" }
-                                    ?: "👑 ${item.totalParticipants}강 우승",
+                                    ?.let { "👑 ${MonthlyCup.label(it, withYear = true)}의 ${whose}사진 · ${item.totalParticipants}강" }
+                                    ?: "👑 $whose${item.totalParticipants}강 우승",
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 modifier = Modifier.testTag("cup_title_${item.id}")

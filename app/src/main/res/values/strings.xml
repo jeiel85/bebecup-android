@@ -7,5 +7,7 @@
     <string name="monthly_cup_channel_desc">매달 초, 지난달 사진으로 월드컵을 열 수 있을 때 한 번 알려드려요.</string>
     <string name="monthly_cup_title">%1$s의 월드컵을 열 때예요 🏆</string>
     <string name="monthly_cup_text">%1$s에 찍어 보관한 사진 %2$d장 중 가족이 함께 %1$s의 사진을 뽑아 보세요.</string>
+    <string name="monthly_cup_child_title">%1$s의 %2$s 월드컵을 열 때예요 🏆</string>
+    <string name="monthly_cup_child_text">%1$s에 찍어 보관한 %2$s 사진 %3$d장 중 가족이 함께 %1$s의 %2$s 사진을 뽑아 보세요.</string>
     <string name="nudge_text">5분이면 베스트 사진을 골라 둘 수 있어요. 베베컵이 기기 안에서 먼저 추려 드릴게요.</string>
 </resources>

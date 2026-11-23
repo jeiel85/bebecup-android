@@ -75,17 +75,24 @@ class NudgeWorker(
 
     /** Announce last month's cup once when it is due; true if a notification was posted. */
     private suspend fun remindMonthlyCup(prefs: BebecupPrefs): Boolean {
-        val dao = AppDatabase.getDatabase(applicationContext).babyPhotoDao()
+        val db = AppDatabase.getDatabase(applicationContext)
+        val dao = db.babyPhotoDao()
+        val childrenDao = db.childrenDao()
         val today = MonthlyCup.today()
+        val photoChildren = childrenDao.getPhotoChildren().groupBy({ it.photoId }, { it.childId })
+        val children = childrenDao.getChildren()
         val due = MonthlyCup.pending(
             today = today,
-            takenDates = dao.getBestTakenDates(),
-            decided = dao.getMonthlyCupKeys().toSet(),
+            childIds = children.map { it.id },
+            photos = dao.getBestTakenDates().map { MonthlyCup.Photo(it.takenDate, photoChildren[it.photoId].orEmpty().toSet()) },
+            held = dao.getMonthlyCups().map { MonthlyCup.Held(it.monthKey, it.childId) },
             skippedKey = prefs.monthlyCupSkippedMonth
         ) ?: return false
-        if (prefs.monthlyCupNotifiedMonth == due.key) return false
-        NudgeNotifier.postMonthlyCup(applicationContext, MonthlyCup.label(due.key, today.year), due)
-        prefs.monthlyCupNotifiedMonth = due.key
+        // Once a month: with siblings the home card then offers each child's cup in turn.
+        if (prefs.monthlyCupNotifiedMonth == due.month.key) return false
+        val child = children.firstOrNull { it.id == due.childId }
+        NudgeNotifier.postMonthlyCup(applicationContext, MonthlyCup.label(due.month.key, today.year), due.month, child?.id, child?.name)
+        prefs.monthlyCupNotifiedMonth = due.month.key
         return true
     }
 
@@ -116,6 +123,8 @@ object NudgeNotifier {
     const val EXTRA_OPEN_CURATION = "com.bebecup.app.OPEN_CURATION"
     /** "yyyy-MM" of the 이달의 월드컵 to open. */
     const val EXTRA_OPEN_MONTHLY_CUP = "com.bebecup.app.OPEN_MONTHLY_CUP"
+    /** With [EXTRA_OPEN_MONTHLY_CUP]: whose cup it is (a child's id), when the family has siblings. */
+    const val EXTRA_MONTHLY_CUP_CHILD = "com.bebecup.app.MONTHLY_CUP_CHILD"
 
     fun canPost(context: Context): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
@@ -139,16 +148,20 @@ object NudgeNotifier {
     }
 
     /** "10월의 월드컵을 열 때예요" — once per month, tapping opens that month's cup. */
-    fun postMonthlyCup(context: Context, monthLabel: String, month: MonthlyCup.Month) {
+    /** [childId]/[childName]: the child whose cup it is; null for the family's one cup. */
+    fun postMonthlyCup(context: Context, monthLabel: String, month: MonthlyCup.Month, childId: Long? = null, childName: String? = null) {
         ensureChannel(context, MONTHLY_CHANNEL_ID, R.string.monthly_cup_channel_name, R.string.monthly_cup_channel_desc)
         val open = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra(EXTRA_OPEN_MONTHLY_CUP, month.key)
+            if (childId != null) putExtra(EXTRA_MONTHLY_CUP_CHILD, childId)
         }
         notify(
             context, MONTHLY_CHANNEL_ID, MONTHLY_NOTIFICATION_ID, open,
-            context.getString(R.string.monthly_cup_title, monthLabel),
-            context.getString(R.string.monthly_cup_text, monthLabel, month.photoCount)
+            if (childName == null) context.getString(R.string.monthly_cup_title, monthLabel)
+            else context.getString(R.string.monthly_cup_child_title, monthLabel, childName),
+            if (childName == null) context.getString(R.string.monthly_cup_text, monthLabel, month.photoCount)
+            else context.getString(R.string.monthly_cup_child_text, monthLabel, childName, month.photoCount)
         )
     }
 

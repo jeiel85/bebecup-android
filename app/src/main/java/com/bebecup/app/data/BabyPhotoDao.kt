@@ -86,9 +86,15 @@ interface BabyPhotoDao {
 
     // 이달의 월드컵 (read by the reminder worker, which has no Flow collectors)
 
-    @Query("SELECT takenDate FROM baby_photos WHERE isSelectedAsBest = 1")
-    suspend fun getBestTakenDates(): List<String>
+    @Query("SELECT id AS photoId, takenDate FROM baby_photos WHERE isSelectedAsBest = 1")
+    suspend fun getBestTakenDates(): List<PhotoTakenDate>
 
-    @Query("SELECT DISTINCT monthKey FROM tournament_records WHERE monthKey IS NOT NULL")
-    suspend fun getMonthlyCupKeys(): List<String>
+    @Query("SELECT DISTINCT monthKey, childId FROM tournament_records WHERE monthKey IS NOT NULL")
+    suspend fun getMonthlyCups(): List<HeldMonthlyCup>
 }
+
+/** A saved photo's id and `takenDate`, for the reminder worker. */
+data class PhotoTakenDate(val photoId: Int, val takenDate: String)
+
+/** A 이달의 월드컵 that was held: its month and, for one child's cup, that child. */
+data class HeldMonthlyCup(val monthKey: String, val childId: Long?)

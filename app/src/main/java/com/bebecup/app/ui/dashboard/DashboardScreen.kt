@@ -97,10 +97,11 @@ fun DashboardView(
         viewModel.pendingMonthlyCup(bestPhotos, tournaments)?.let { due ->
             item(key = "monthly_cup") {
                 MonthlyCupCard(
-                    label = viewModel.monthLabel(due.key),
-                    photoCount = due.photoCount,
-                    onOpen = { viewModel.openWorldCup(due.key) },
-                    onSkip = { viewModel.skipMonthlyCup(due.key) }
+                    label = viewModel.monthLabel(due.month.key),
+                    childName = viewModel.children.firstOrNull { it.id == due.childId }?.name,
+                    photoCount = due.month.photoCount,
+                    onOpen = { viewModel.openWorldCup(due.month.key, due.childId) },
+                    onSkip = { viewModel.skipMonthlyCup(due.month.key) }
                 )
             }
         }
@@ -138,8 +139,9 @@ fun DashboardView(
         item {
             FeatureCard(
                 illustration = R.drawable.illus_worldcup,
-                title = "가족 이상형 월드컵",
-                body = if (bestPhotos.size >= 2) "보관한 사진 ${bestPhotos.size}장 중 최고의 한 장을 가족이 함께 뽑아요"
+                title = if (viewModel.cupsPerChild) "아이별 이상형 월드컵" else "가족 이상형 월드컵",
+                body = if (viewModel.cupsPerChild && bestPhotos.size >= 2) "형제끼리 겨루지 않도록 아이마다 따로, 최고의 한 장을 가족이 함께 뽑아요"
+                else if (bestPhotos.size >= 2) "보관한 사진 ${bestPhotos.size}장 중 최고의 한 장을 가족이 함께 뽑아요"
                 else "보관함에 사진이 2장 이상 모이면 시작할 수 있어요",
                 actionLabel = "월드컵 열기",
                 actionEnabled = bestPhotos.size >= 2,
@@ -214,9 +216,13 @@ private fun FaceNamingCard(groupCount: Int, onOpen: () -> Unit, onLater: () -> U
     }
 }
 
-/** 이달의 월드컵: last month's saved photos are waiting for their cup. */
+/**
+ * 이달의 월드컵: last month's saved photos are waiting for their cup — with
+ * siblings, [childName]'s photos (each child's card comes in turn).
+ */
 @Composable
-private fun MonthlyCupCard(label: String, photoCount: Int, onOpen: () -> Unit, onSkip: () -> Unit) {
+private fun MonthlyCupCard(label: String, childName: String?, photoCount: Int, onOpen: () -> Unit, onSkip: () -> Unit) {
+    val whose = childName?.let { "$it " }.orEmpty()
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -226,9 +232,9 @@ private fun MonthlyCupCard(label: String, photoCount: Int, onOpen: () -> Unit, o
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("🏆 ${label}의 월드컵", fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
+                Text("🏆 ${label}의 ${whose}월드컵", fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
                 Text(
-                    "${label}에 찍어 보관한 사진 ${photoCount}장 중 가족이 함께 ${label}의 사진을 뽑아요. 우승 사진은 우승 전당에 남아요.",
+                    "${label}에 찍어 보관한 ${whose}사진 ${photoCount}장 중 가족이 함께 ${label}의 ${whose}사진을 뽑아요. 우승 사진은 우승 전당에 남아요.",
                     fontSize = 12.sp,
                     lineHeight = 17.sp,
                     color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f)
@@ -239,7 +245,7 @@ private fun MonthlyCupCard(label: String, photoCount: Int, onOpen: () -> Unit, o
                         onClick = onOpen,
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.testTag("monthly_cup_open")
-                    ) { Text("${label} 월드컵 열기", fontWeight = FontWeight.Bold) }
+                    ) { Text("${label} ${whose}월드컵 열기", fontWeight = FontWeight.Bold) }
                 }
             }
         }

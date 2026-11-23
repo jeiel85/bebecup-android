@@ -98,6 +98,9 @@ interface ChildrenDao {
     @Query("SELECT DISTINCT photoId, childId FROM photo_faces WHERE childId IS NOT NULL")
     fun observePhotoChildren(): Flow<List<PhotoChildRow>>
 
+    @Query("SELECT DISTINCT photoId, childId FROM photo_faces WHERE childId IS NOT NULL")
+    suspend fun getPhotoChildren(): List<PhotoChildRow>
+
     /** The newest unknown face id (0 = none), for the home card that asks for names. */
     @Query("SELECT COALESCE(MAX(id), 0) FROM photo_faces WHERE state = '${FaceState.UNKNOWN}' AND modelVersion = :version")
     fun observeNewestUnknownFaceId(version: Int): Flow<Long>
