@@ -47,15 +47,27 @@ class BebecupPrefs(context: Context) {
         get() = prefs.getLong(KEY_LAST_NUDGE, 0L)
         set(value) = prefs.edit().putLong(KEY_LAST_NUDGE, value).apply()
 
-    /** The baby's name as the parent typed it; "" when not given. Stays on this device. */
+    /**
+     * The one-child profile from before v6 (아이 여러 명). Only read once, to become the
+     * first child in the database; see [legacyProfileMoved].
+     */
     var babyName: String
         get() = prefs.getString(KEY_BABY_NAME, "") ?: ""
         set(value) = prefs.edit().putString(KEY_BABY_NAME, value).apply()
 
-    /** The baby's birthday as "yyyy-MM-dd"; "" when not given. Stays on this device. */
     var babyBirthDate: String
         get() = prefs.getString(KEY_BABY_BIRTH_DATE, "") ?: ""
         set(value) = prefs.edit().putString(KEY_BABY_BIRTH_DATE, value).apply()
+
+    /** The pre-v6 profile ([babyName], [babyBirthDate]) has been moved into the children table. */
+    var legacyProfileMoved: Boolean
+        get() = prefs.getBoolean(KEY_LEGACY_PROFILE_MOVED, false)
+        set(value) = prefs.edit().putBoolean(KEY_LEGACY_PROFILE_MOVED, value).apply()
+
+    /** 아이 얼굴 구분: the newest unknown face id when the parent tapped "나중에" on the home card. */
+    var faceNamingDismissedFaceId: Long
+        get() = prefs.getLong(KEY_FACE_NAMING_DISMISSED, 0L)
+        set(value) = prefs.edit().putLong(KEY_FACE_NAMING_DISMISSED, value).apply()
 
     /** The parent tapped "다음에" on the home card asking for the birthday. */
     var babyProfilePromptDismissed: Boolean
@@ -131,5 +143,7 @@ class BebecupPrefs(context: Context) {
         private const val KEY_UPDATE_DISMISSED = "update_dismissed_version_code"
         private const val KEY_UPDATE_FAILURES = "update_check_failures"
         private const val KEY_THEME_MODE = "theme_mode"
+        private const val KEY_LEGACY_PROFILE_MOVED = "legacy_baby_profile_moved"
+        private const val KEY_FACE_NAMING_DISMISSED = "face_naming_dismissed_face_id"
     }
 }

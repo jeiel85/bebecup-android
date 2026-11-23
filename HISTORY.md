@@ -1,5 +1,16 @@
 # History
 
+## 2026-11-23 (아이 얼굴 구분·아이별 월드컵, v0.12.0)
+
+- **요청**: 아이가 둘인데 한 '아기 사진'으로 합쳐져 월드컵이 섞임 → 두 아이를 따로 인식, 인식된 아이마다 이름 설정. 모델은 앱에 넣지 말고 설정·온보딩에서 받기.
+- **원인**: ML Kit 얼굴 인식은 위치·눈·표정만 주고 사람을 구별하지 않음. 앱도 아기 한 명(prefs 이름·생일)만 알았음.
+- **모델**: OpenCV Zoo SFace(Apache-2.0)를 TFLite로 옮김. onnx2tf가 Windows에서 `ai_edge_litert` 없이 돌지 않아, 27단 직렬 구조를 Keras로 직접 옮기는 `scripts/face-id-model/convert_sface.py`를 씀(float32는 ONNX와 동일, int8 9.9MB는 실제 얼굴에서 0.997+). GitHub 릴리스 `face-id-model-v1`(prerelease, latest 아님)에 LICENSE·NOTICE와 함께 올림. `DECISIONS.md` 참고.
+- **변경**: Room v6(`children`·`photo_faces`·`face_references`·`faceIdVersion`), `FaceIdentityReader`(ML Kit 눈·입꼬리 → 정렬 → TFLite), `FaceMatcher`(예시 top-3 평균 0.40 + 차이 0.06, 평균 연결 0.42로 묶기), `FamilyFaces`, 우리 아이들 화면·얼굴 묶음 이름 붙이기·사진별 고치기·보관함 아이 필터·아이별 월드컵·온보딩 스위치·설정 카드. `github` APK는 네이티브 라이브러리 압축.
+- **에뮬레이터에서 잡은 것 2가지**: ① ML Kit의 `RIGHT_EYE`가 화면 오른쪽 — 이름대로 템플릿에 맞추면 얼굴이 뒤집혀 다른 사람끼리 코사인 0.56. 정렬이 얼굴 방향으로 좌우를 정하게 고침(같은 사람 ≥0.53, 다른 사람 ≤0.39, LFW 3명 24장이 정확히 3묶음). ② R8 full mode가 `InterpreterFactoryImpl.<init>`을 지워 릴리스 빌드에서만 얼굴 구분이 실패(v0.7.1의 ML Kit와 같은 종류). keep 규칙 + CI seeds 확인 추가.
+- **검증**: 단위 테스트(Play 112·GitHub 116, 새로 FaceMatcher·FamilyFaces·아이별 월드컵·v6 마이그레이션). 에뮬레이터 `bebecup-phone-api36`에서 GitHub 디버그와 R8 릴리스(디버그 키 재서명): 온보딩 스위치로 GitHub 릴리스에서 모델 받기(SHA 확인) → 정리 → "얼굴 3명" → 이름 붙이기·아이 아님 → 보관함 이름 표시·필터 → 아이별 월드컵(그 아이 사진만).
+- **미확인**: 실제 아기·형제자매 사진의 정확도, Play 빌드의 얼굴 구분(에뮬레이터에 Play 계정이 없어 ML Kit 모듈을 못 받음 — 실기기 필요).
+- **리뷰(PR #26)**: Codex 2건 + 독립 리뷰 5건(1건 겹침) 모두 수정 — 늦게 끝난 재매칭이 부모 지정을 덮어씀(Mutex + `state != manual` 조건), "아이 아님" 점수를 가장 가까운 예시 하나로, Android 11 이하 SQLite 변수 999개 한도(나눠 보내기), 추론 중 인터프리터 해제, 작업 중 담은 사진 누락, 아이 2명일 때 홈 생일 카드가 아이를 하나 더 만듦.
+
 ## 2026-11-22 (사용자 피드백: 맡기기 멈춤·설정·업데이트·테마)
 
 - **피드백**: "베베컵에게 맡기기"가 "사진을 살펴보다 멈췄어요"만 보이고 멈춤 / 설정이 너무 적고 얼굴 인식(ML Kit) 설정이 없음 / 앱이 전반적으로 제 기능을 하는지 / 다른 앱처럼 자동 업데이트 확인 / 테마가 어두움.

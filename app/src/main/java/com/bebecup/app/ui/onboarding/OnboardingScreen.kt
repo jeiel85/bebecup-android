@@ -20,7 +20,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -31,6 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bebecup.app.R
+import com.bebecup.app.ui.children.FACE_ID_MODEL_SIZE_LABEL
 import com.bebecup.app.ui.components.Illustration
 import com.bebecup.app.ui.components.rememberNudgeOptIn
 import com.bebecup.app.ui.viewmodel.BabyCupViewModel
@@ -73,7 +79,9 @@ private val onboardingPages = listOf(
 fun OnboardingScreen(viewModel: BabyCupViewModel) {
     val pagerState = rememberPagerState(pageCount = { onboardingPages.size })
     val scope = rememberCoroutineScope()
-    val optIn = rememberNudgeOptIn(viewModel) { viewModel.completeOnboarding() }
+    // 아이 얼굴 구분 is a ~10 MB download, so it is off unless the parent turns it on here.
+    var faceId by rememberSaveable { mutableStateOf(false) }
+    val optIn = rememberNudgeOptIn(viewModel) { viewModel.completeOnboarding(downloadFaceId = faceId) }
     val isLastPage = pagerState.currentPage == onboardingPages.lastIndex
 
     Column(
@@ -84,7 +92,7 @@ fun OnboardingScreen(viewModel: BabyCupViewModel) {
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             TextButton(
-                onClick = { viewModel.completeOnboarding() },
+                onClick = { viewModel.completeOnboarding(downloadFaceId = faceId) },
                 modifier = Modifier.testTag("onboarding_skip_button")
             ) {
                 Text("건너뛰기", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f))
@@ -140,6 +148,29 @@ fun OnboardingScreen(viewModel: BabyCupViewModel) {
         }
 
         if (isLastPage) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 10.dp)
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("아이가 둘 이상이에요", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "얼굴로 아이를 구분해 아이별로 월드컵을 열어요. 얼굴 구분 파일(${FACE_ID_MODEL_SIZE_LABEL})을 받아요. 나중에 설정에서도 켤 수 있어요.",
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+                    )
+                }
+                Switch(
+                    checked = faceId,
+                    onCheckedChange = { faceId = it },
+                    modifier = Modifier
+                        .padding(start = 12.dp)
+                        .testTag("onboarding_face_id_switch")
+                )
+            }
             Button(
                 onClick = optIn.request,
                 modifier = Modifier
@@ -149,7 +180,7 @@ fun OnboardingScreen(viewModel: BabyCupViewModel) {
                 shape = RoundedCornerShape(18.dp)
             ) { Text("알림 받고 시작하기", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold) }
             OutlinedButton(
-                onClick = { viewModel.completeOnboarding() },
+                onClick = { viewModel.completeOnboarding(downloadFaceId = faceId) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp)

@@ -163,7 +163,7 @@ jobs:
       # registrars (created by reflection), so "베베컵에게 맡기기" failed in every
       # release build v0.7.1-v0.10.0 while debug builds worked. proguard-rules.pro
       # keeps them; this checks both channels.
-      - name: Verify R8 kept ML Kit registrar constructors
+      - name: Verify R8 kept reflectively created constructors (ML Kit, TensorFlow Lite)
         run: |
           for f in github play; do
             SEEDS="app/build/outputs/mapping/${f}Release/seeds.txt"
@@ -172,6 +172,9 @@ jobs:
               grep -qx "com.google.mlkit.$r: $NAME()" "$SEEDS" || { echo "::error::$f release: R8 dropped $NAME()"; exit 1; }
             done
           done
+          # TensorFlow Lite runtime for 아이 얼굴 구분, also created by reflection.
+          grep -qx "org.tensorflow.lite.InterpreterFactoryImpl: InterpreterFactoryImpl()" app/build/outputs/mapping/githubRelease/seeds.txt             || { echo "::error::github release: R8 dropped InterpreterFactoryImpl()"; exit 1; }
+          grep -qx "com.google.android.gms.tflite.InterpreterFactoryImpl: InterpreterFactoryImpl()" app/build/outputs/mapping/playRelease/seeds.txt             || { echo "::error::play release: R8 dropped InterpreterFactoryImpl()"; exit 1; }
 
       - name: Upload R8 mapping artifact (build job)
         uses: actions/upload-artifact@v7
@@ -242,7 +245,7 @@ jobs:
           ORG_GRADLE_PROJECT_bebecup.requireReleaseSigning: "true"
         run: ./gradlew :app:assembleGithubRelease :app:bundlePlayRelease
 
-      - name: Verify R8 kept ML Kit registrar constructors
+      - name: Verify R8 kept reflectively created constructors (ML Kit, TensorFlow Lite)
         run: |
           for f in github play; do
             SEEDS="app/build/outputs/mapping/${f}Release/seeds.txt"
@@ -251,6 +254,9 @@ jobs:
               grep -qx "com.google.mlkit.$r: $NAME()" "$SEEDS" || { echo "::error::$f release: R8 dropped $NAME()"; exit 1; }
             done
           done
+          # TensorFlow Lite runtime for 아이 얼굴 구분, also created by reflection.
+          grep -qx "org.tensorflow.lite.InterpreterFactoryImpl: InterpreterFactoryImpl()" app/build/outputs/mapping/githubRelease/seeds.txt             || { echo "::error::github release: R8 dropped InterpreterFactoryImpl()"; exit 1; }
+          grep -qx "com.google.android.gms.tflite.InterpreterFactoryImpl: InterpreterFactoryImpl()" app/build/outputs/mapping/playRelease/seeds.txt             || { echo "::error::play release: R8 dropped InterpreterFactoryImpl()"; exit 1; }
 
       # Public certificate fingerprints, so a swapped secret cannot ship a
       # wrongly signed build (docs/RELEASE.md).

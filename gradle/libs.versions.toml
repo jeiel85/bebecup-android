@@ -42,6 +42,8 @@ mlkitFaceDetection = "16.1.7"
 playServicesBase = "18.11.1"
 workRuntime = "2.10.1"
 playAppUpdate = "2.1.0"
+playServicesTflite = "16.5.0"
+litert = "1.4.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -96,6 +98,8 @@ play-services-mlkit-face-detection = { group = "com.google.android.gms", name = 
 mlkit-face-detection = { group = "com.google.mlkit", name = "face-detection", version.ref = "mlkitFaceDetection" }
 play-services-base = { group = "com.google.android.gms", name = "play-services-base", version.ref = "playServicesBase" }
 play-app-update = { group = "com.google.android.play", name = "app-update", version.ref = "playAppUpdate" }
+play-services-tflite-java = { group = "com.google.android.gms", name = "play-services-tflite-java", version.ref = "playServicesTflite" }
+litert = { group = "com.google.ai.edge.litert", name = "litert", version.ref = "litert" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

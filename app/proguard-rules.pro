@@ -11,3 +11,19 @@
 -keep class * implements com.google.firebase.components.ComponentRegistrar {
     <init>();
 }
+
+# TensorFlow Lite (아이 얼굴 구분): InterpreterApi.create() finds its runtime with
+# Class.forName("…InterpreterFactoryImpl").getDeclaredConstructor().newInstance() —
+# org.tensorflow.lite.* from LiteRT in the github build, com.google.android.gms.tflite.*
+# from Play services in the play build. The libraries keep @UsedByReflection classes but,
+# in R8 full mode, not their constructors, so release builds failed with
+# NoSuchMethodException: InterpreterFactoryImpl.<init> (found on the emulator before release).
+-keepclassmembers @org.tensorflow.lite.annotations.UsedByReflection class * {
+    <init>(...);
+}
+-keep class org.tensorflow.lite.InterpreterFactoryImpl {
+    <init>();
+}
+-keep class com.google.android.gms.tflite.InterpreterFactoryImpl {
+    <init>();
+}

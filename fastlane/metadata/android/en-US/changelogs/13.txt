@@ -1,0 +1,4 @@
+• With more than one child, photos are sorted by child from their faces. Name each face group once and new photos are sorted for you
+• A world cup per child, with only that child's photos
+• Add each child's name and birthday; ages follow the child in the photo
+• Telling children apart downloads a 9.9 MB file once when you turn it on in Settings. Everything stays on the device

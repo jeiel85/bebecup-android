@@ -22,7 +22,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bebecup.app.data.BabyPhoto
+import com.bebecup.app.data.children.ChildEntity
 import com.bebecup.app.domain.model.PhotoQualityGrade
+import com.bebecup.app.ui.children.PhotoChildrenDialog
+import com.bebecup.app.ui.viewmodel.FaceIdState
+import androidx.compose.runtime.remember
 import com.bebecup.app.domain.model.ShortlistItem
 import com.bebecup.app.R
 import com.bebecup.app.ui.components.BabyPhotoIllustration
@@ -37,6 +42,8 @@ fun AiCurationResultScreen(viewModel: BabyCupViewModel) {
     val shortlist = viewModel.aiShortlist
     val approvedCount = viewModel.aiApprovedIds.size
     var showRejected by rememberSaveable { mutableStateOf(false) }
+    var whoPhoto by remember { mutableStateOf<BabyPhoto?>(null) }
+    val showNames = viewModel.children.size >= 2 || viewModel.faceIdState == FaceIdState.READY
 
     Column(
         modifier = Modifier
@@ -59,6 +66,24 @@ fun AiCurationResultScreen(viewModel: BabyCupViewModel) {
             StatChip("추천", "${shortlist.size}장", Modifier.weight(1f))
             StatChip("승인", "${approvedCount}장", Modifier.weight(1f))
             StatChip("제외", "${viewModel.aiRejectedCount}장", Modifier.weight(1f))
+        }
+
+        if (viewModel.faceGroups.isNotEmpty()) {
+            Card(
+                onClick = { viewModel.navigateTo(UiScreen.Children) },
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 10.dp)
+                    .testTag("result_face_naming")
+            ) {
+                Text(
+                    "얼굴 ${viewModel.faceGroups.size}명이 누구인지 알려 주세요. 알려 주시면 아이별로 나눠 드려요.",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(12.dp)
+                )
+            }
         }
 
         if (viewModel.aiClusterCount > 0) {
@@ -100,7 +125,9 @@ fun AiCurationResultScreen(viewModel: BabyCupViewModel) {
                     ShortlistCard(
                         item = item,
                         approved = viewModel.aiApprovedIds.contains(item.photo.id),
-                        onToggle = { viewModel.toggleShortlistApproval(item.photo.id) }
+                        onToggle = { viewModel.toggleShortlistApproval(item.photo.id) },
+                        children = viewModel.childrenIn(item.photo),
+                        onWho = if (showNames) ({ whoPhoto = item.photo }) else null
                     )
                 }
 
@@ -131,7 +158,9 @@ fun AiCurationResultScreen(viewModel: BabyCupViewModel) {
                             ShortlistCard(
                                 item = item,
                                 approved = viewModel.aiApprovedIds.contains(item.photo.id),
-                                onToggle = { viewModel.toggleShortlistApproval(item.photo.id) }
+                                onToggle = { viewModel.toggleShortlistApproval(item.photo.id) },
+                                children = viewModel.childrenIn(item.photo),
+                                onWho = if (showNames) ({ whoPhoto = item.photo }) else null
                             )
                         }
                     }
@@ -176,6 +205,10 @@ fun AiCurationResultScreen(viewModel: BabyCupViewModel) {
             }
         }
     }
+
+    whoPhoto?.let { photo ->
+        PhotoChildrenDialog(viewModel = viewModel, photo = photo, onDismiss = { whoPhoto = null })
+    }
 }
 
 @Composable
@@ -195,7 +228,13 @@ private fun StatChip(label: String, value: String, modifier: Modifier = Modifier
 }
 
 @Composable
-private fun ShortlistCard(item: ShortlistItem, approved: Boolean, onToggle: () -> Unit) {
+private fun ShortlistCard(
+    item: ShortlistItem,
+    approved: Boolean,
+    onToggle: () -> Unit,
+    children: List<ChildEntity> = emptyList(),
+    onWho: (() -> Unit)? = null
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -235,6 +274,21 @@ private fun ShortlistCard(item: ShortlistItem, approved: Boolean, onToggle: () -
                 val reasons = item.positiveReasons.ifEmpty { item.rejectReasons }
                 reasons.take(2).forEach { reason ->
                     Text("· $reason", fontSize = 10.sp, color = Color.DarkGray, lineHeight = 14.sp)
+                }
+                if (onWho != null) {
+                    TextButton(
+                        onClick = onWho,
+                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
+                        modifier = Modifier
+                            .height(28.dp)
+                            .testTag("who_${item.photo.id}")
+                    ) {
+                        Text(
+                            if (children.isEmpty()) "누구 사진이에요?" else children.joinToString(" · ") { it.name },
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 

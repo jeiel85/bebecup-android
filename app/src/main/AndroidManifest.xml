@@ -17,6 +17,11 @@
         android:maxSdkVersion="32" />
     <!-- Android 13+: the opt-in "사진이 쌓이면 알려드려요" reminder. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!--
+      Only to download the face-ID model file (아이 얼굴 구분) from this app's GitHub
+      release when the parent asks for it. No photo, face or analysis data is sent.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"
