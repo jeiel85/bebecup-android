@@ -26,7 +26,7 @@ import com.bebecup.app.data.children.PhotoFaceEntity
         PhotoFaceEntity::class,
         FaceReferenceEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -48,7 +48,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "baby_photo_worldcup_database"
                 )
                     // Commercial release: explicit migrations preserve user data
-                    // across updates (v2 tournament app → v6). See
+                    // across updates (v2 tournament app → v7). See
                     // [ALL_MIGRATIONS] / Migrations.kt.
                     .addMigrations(*ALL_MIGRATIONS)
                     // Only wipe on an (unsupported) downgrade, never on upgrade.

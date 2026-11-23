@@ -69,8 +69,56 @@ class MonthlyCupTest {
             Cup(3, "2026-10", at = 200),
             Cup(4, "2026-09", at = 50)
         )
-        val holders = MonthlyCup.titleHolders(cups, { it.month }, { it.at })
+        val holders = MonthlyCup.titleHolders(cups, { it.month }, { null }, { it.at })
         assertEquals(setOf(3, 4), holders.map { it.id }.toSet())
+    }
+
+    @Test
+    fun `siblings each keep their own month's photo`() {
+        data class Cup(val id: Int, val month: String, val child: Long?, val at: Long)
+        val cups = listOf(
+            Cup(1, "2026-10", child = 1L, at = 100),
+            Cup(2, "2026-10", child = 2L, at = 200),
+            Cup(3, "2026-10", child = 1L, at = 300)
+        )
+        val holders = MonthlyCup.titleHolders(cups, { it.month }, { it.child }, { it.at })
+        assertEquals(setOf(2, 3), holders.map { it.id }.toSet())
+    }
+
+    @Test
+    fun `siblings are offered last month's cup one child at a time`() {
+        val photos = listOf(
+            MonthlyCup.Photo("2026-10-01", setOf(1L)),
+            MonthlyCup.Photo("2026-10-02", setOf(1L, 2L)),
+            MonthlyCup.Photo("2026-10-03", setOf(2L)),
+            MonthlyCup.Photo("2026-10-04", emptySet())
+        )
+        val siblings = listOf(1L, 2L)
+        val october = { count: Int -> MonthlyCup.Month("2026-10", count) }
+        assertEquals(MonthlyCup.Due(october(2), 1L), MonthlyCup.pending(nov21, siblings, photos, emptyList(), ""))
+        assertEquals(
+            MonthlyCup.Due(october(2), 2L),
+            MonthlyCup.pending(nov21, siblings, photos, listOf(MonthlyCup.Held("2026-10", 1L)), "")
+        )
+        // A cup that mixed them (before siblings had their own) decides nobody's month.
+        assertEquals(1L, MonthlyCup.pending(nov21, siblings, photos, listOf(MonthlyCup.Held("2026-10", null)), "")?.childId)
+        assertNull(
+            MonthlyCup.pending(nov21, siblings, photos, listOf(MonthlyCup.Held("2026-10", 1L), MonthlyCup.Held("2026-10", 2L)), "")
+        )
+        assertNull(MonthlyCup.pending(nov21, siblings, photos, emptyList(), "2026-10"))
+        // A child with one photo of the month has no cup for it.
+        assertNull(MonthlyCup.pending(nov21, siblings, photos.take(1) + photos.drop(2), listOf(MonthlyCup.Held("2026-10", 2L)), ""))
+    }
+
+    @Test
+    fun `one child keeps the family's one monthly cup over every photo`() {
+        val photos = listOf(MonthlyCup.Photo("2026-10-01", setOf(1L)), MonthlyCup.Photo("2026-10-02", emptySet()))
+        assertEquals(
+            MonthlyCup.Due(MonthlyCup.Month("2026-10", 2), null),
+            MonthlyCup.pending(nov21, listOf(1L), photos, emptyList(), "")
+        )
+        assertNull(MonthlyCup.pending(nov21, listOf(1L), photos, listOf(MonthlyCup.Held("2026-10", 1L)), ""))
+        assertNull(MonthlyCup.pending(nov21, emptyList(), photos, listOf(MonthlyCup.Held("2026-10", null)), ""))
     }
 
     @Test

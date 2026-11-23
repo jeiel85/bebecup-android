@@ -20,6 +20,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -47,14 +49,27 @@ import com.bebecup.app.ui.viewmodel.UiScreen
  * Pick which photos compete and the bracket size. Entrants are the most
  * recently saved photos in the 보관함, or — for a 이달의 월드컵 — the saved
  * photos taken in one month, whose winner is kept as that month's photo.
+ * With siblings every cup is one child's ([BabyCupViewModel.cupsPerChild]).
  */
 @Composable
 fun WorldCupSetupView(viewModel: BabyCupViewModel, bestPhotos: List<BabyPhoto>) {
+    val tournaments by viewModel.tournaments.collectAsState()
+    // On a cold start (e.g. from a reminder) whether there are siblings is not known yet.
+    if (!viewModel.childrenLoaded) {
+        Box(Modifier.fillMaxSize())
+        return
+    }
+    val perChild = viewModel.cupsPerChild
     // Whose cup: only children with at least two saved photos can have one.
     val childChoices = viewModel.children
         .map { it to viewModel.photosOf(bestPhotos, it.id).size }
         .filter { it.second >= 2 }
     val childId = viewModel.worldCupChildId?.takeIf { id -> childChoices.any { it.first.id == id } }
+        ?: viewModel.defaultCupChild(bestPhotos, viewModel.worldCupMonth, tournaments)
+    // Keep the child the screen opened on: picking a month later must not switch whose cup it is.
+    LaunchedEffect(perChild, childId) {
+        if (perChild && childId != null && viewModel.worldCupChildId != childId) viewModel.selectWorldCupChild(childId)
+    }
     val childName = childChoices.firstOrNull { it.first.id == childId }?.first?.name
     val childPhotos = viewModel.photosOf(bestPhotos, childId)
     val months = remember(childPhotos) { MonthlyCup.months(childPhotos.map { it.takenDate }) }
@@ -70,9 +85,27 @@ fun WorldCupSetupView(viewModel: BabyCupViewModel, bestPhotos: List<BabyPhoto>) 
             .testTag("world_cup_setup_view")
     ) {
         ScreenHeader(
-            title = childName?.let { "$it 이상형 월드컵" } ?: "가족 이상형 월드컵",
+            title = childName?.let { "$it 이상형 월드컵" } ?: if (perChild) "이상형 월드컵" else "가족 이상형 월드컵",
             onBack = { viewModel.navigateBack() }
         )
+
+        if (perChild && childId == null) {
+            // Siblings, but no child has two saved photos known to be theirs yet.
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                EmptyState(
+                    illustration = R.drawable.illus_worldcup,
+                    title = "아이별로 월드컵을 열어요",
+                    body = "형제끼리 겨루지 않도록 아이마다 따로 월드컵을 해요. " +
+                        "'아이 얼굴 구분'을 켜고 누구 사진인지 알려 주시면, 아이마다 보관한 사진이 2장 이상일 때 열 수 있어요."
+                ) {
+                    Button(
+                        onClick = { viewModel.navigateTo(UiScreen.Children) },
+                        modifier = Modifier.testTag("cup_needs_children")
+                    ) { Text("우리 아이들") }
+                }
+            }
+            return
+        }
 
         if (sizes.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -101,18 +134,19 @@ fun WorldCupSetupView(viewModel: BabyCupViewModel, bestPhotos: List<BabyPhoto>) 
             val whose = childName?.let { "$it 사진" } ?: "사진"
             Text(
                 if (label == null) "보관함의 최근 $whose ${selected}장이 1:1로 겨뤄요.\n가족과 함께 골라 최고의 한 장을 뽑아 보세요!"
-                else "${label}에 찍은 $whose ${selected}장이 1:1로 겨뤄요.\n우승 사진은 ${label}의 사진으로 우승 전당에 남아요!",
+                else "${label}에 찍은 $whose ${selected}장이 1:1로 겨뤄요.\n우승 사진은 ${label}의 ${whose}으로 우승 전당에 남아요!",
                 fontSize = 14.sp,
                 lineHeight = 21.sp,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
                 modifier = Modifier.testTag("world_cup_setup_description")
             )
-            if (childChoices.isNotEmpty() && (viewModel.children.size >= 2 || childChoices.single().second < bestPhotos.size)) {
+            if (perChild || (childChoices.isNotEmpty() && childChoices.single().second < bestPhotos.size)) {
                 Spacer(Modifier.height(2.dp))
                 Text("누구의 월드컵인가요?", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    item {
+                    // One child: their cup or the family's over every photo. Siblings: no shared cup.
+                    if (!perChild) item {
                         Choice(
                             text = "모두 · ${bestPhotos.size}장",
                             selected = childId == null,

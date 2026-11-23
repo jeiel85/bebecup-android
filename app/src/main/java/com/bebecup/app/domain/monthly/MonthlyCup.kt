@@ -1,6 +1,7 @@
 package com.bebecup.app.domain.monthly
 
 import androidx.annotation.VisibleForTesting
+import com.bebecup.app.domain.children.cupsArePerChild
 import com.bebecup.app.domain.profile.CalendarDate
 import java.util.Calendar
 import java.util.Locale
@@ -20,6 +21,15 @@ object MonthlyCup {
 
     /** A month whose cup is waiting: [photoCount] saved photos were taken in it. */
     data class Month(val key: String, val photoCount: Int)
+
+    /** Last month's cup that is due, for [childId] (null = the family's one cup). */
+    data class Due(val month: Month, val childId: Long?)
+
+    /** A saved photo: when it was taken and which children are in it. */
+    data class Photo(val takenDate: String, val childIds: Set<Long>)
+
+    /** A 이달의 월드컵 that was held: its month and child (null = a family cup). */
+    data class Held(val monthKey: String, val childId: Long?)
 
     /** "2026-10" for "2026-10-05"; null when [date] isn't a valid "yyyy-MM-dd". */
     fun monthKeyOf(date: String?): String? = CalendarDate.parse(date)?.let { key(it.year, it.month) }
@@ -68,13 +78,44 @@ object MonthlyCup {
     }
 
     /**
-     * The cups that hold their month's title. A month can be played again
-     * (from the setup screen or a late reminder); the latest cup is that
-     * month's photo, and earlier ones stay in the hall as ordinary wins.
+     * Last month's cup that is due, in a family with [childIds] (oldest
+     * first). With one child or none it is the family's one cup over all
+     * [photos], decided by any cup held for the month. With siblings
+     * ([cupsArePerChild]) each child has their own: the first child whose
+     * photos of last month can hold a cup and who has no cup for it yet.
+     * Cups that mixed siblings (null child) decide nobody's month then.
+     * [skippedKey] passes on the month for everyone.
      */
-    fun <T> titleHolders(cups: List<T>, monthKey: (T) -> String?, timestamp: (T) -> Long): Set<T> =
+    fun pending(
+        today: CalendarDate,
+        childIds: List<Long>,
+        photos: List<Photo>,
+        held: List<Held>,
+        skippedKey: String
+    ): Due? {
+        if (!cupsArePerChild(childIds.size)) {
+            val month = pending(today, photos.map { it.takenDate }, held.map { it.monthKey }.toSet(), skippedKey)
+            return month?.let { Due(it, null) }
+        }
+        return childIds.firstNotNullOfOrNull { child ->
+            pending(
+                today = today,
+                takenDates = photos.filter { child in it.childIds }.map { it.takenDate },
+                decided = held.filter { it.childId == child }.map { it.monthKey }.toSet(),
+                skippedKey = skippedKey
+            )?.let { Due(it, child) }
+        }
+    }
+
+    /**
+     * The cups that hold their month's title, one per month and child
+     * ([childId] null = the family's cup). A month can be played again (from
+     * the setup screen or a late reminder); the latest cup is that month's
+     * photo, and earlier ones stay in the hall as ordinary wins.
+     */
+    fun <T> titleHolders(cups: List<T>, monthKey: (T) -> String?, childId: (T) -> Long?, timestamp: (T) -> Long): Set<T> =
         cups.filter { monthKey(it) != null }
-            .groupBy { monthKey(it) }
+            .groupBy { monthKey(it) to childId(it) }
             .values
             .map { sameMonth -> sameMonth.maxBy(timestamp) }
             .toSet()

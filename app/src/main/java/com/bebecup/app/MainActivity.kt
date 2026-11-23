@@ -136,6 +136,7 @@ fun MainContentScreen(
                         winner = screen.winner,
                         bracketSize = screen.bracketSize,
                         monthKey = screen.monthKey,
+                        childName = screen.childName,
                         inPrintCart = printCartPhotos.any { it.id == screen.winner.id }
                     )
                     is UiScreen.PrintCart -> PrintCartView(viewModel = viewModel, cartPhotos = printCartPhotos)

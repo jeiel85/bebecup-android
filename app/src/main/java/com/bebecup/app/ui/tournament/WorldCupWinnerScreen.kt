@@ -39,6 +39,7 @@ fun WorldCupWinnerCelebrationView(
     winner: BabyPhoto,
     bracketSize: Int,
     monthKey: String?,
+    childName: String?,
     inPrintCart: Boolean
 ) {
     val aiMatched = viewModel.aiMatchForWinner(winner.id)
@@ -53,7 +54,8 @@ fun WorldCupWinnerCelebrationView(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text(
-            monthKey?.let { "${viewModel.monthLabel(it)}의 사진!" } ?: "${bracketSize}강 우승!",
+            monthKey?.let { "${viewModel.monthLabel(it)}의 ${childName?.let { name -> "$name " }.orEmpty()}사진!" }
+                ?: "${bracketSize}강 우승!",
             fontSize = 28.sp,
             fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.primary,

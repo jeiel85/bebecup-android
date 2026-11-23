@@ -15,6 +15,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.bebecup.app.data.AppDatabase
 import com.bebecup.app.data.BabyPhoto
 import com.bebecup.app.data.TournamentRecord
+import com.bebecup.app.data.children.ChildEntity
 import com.bebecup.app.data.prefs.BebecupPrefs
 import com.bebecup.app.domain.monthly.MonthlyCup
 import com.bebecup.app.domain.profile.CalendarDate
@@ -111,7 +112,7 @@ class MonthlyCupFlowTest {
         assertEquals(lastMonth, winner.monthKey)
         compose.onNodeWithTag("winner_title").assertTextContains("${viewModel.monthLabel(lastMonth)}의 사진!")
 
-        compose.waitUntil(timeoutMillis = 10_000) { runBlocking { dao.getMonthlyCupKeys() } == listOf(lastMonth) }
+        compose.waitUntil(timeoutMillis = 10_000) { runBlocking { dao.getMonthlyCups() }.map { it.monthKey } == listOf(lastMonth) }
 
         // Played: the home card is gone.
         compose.runOnIdle { viewModel.navigateHome() }
@@ -153,6 +154,24 @@ class MonthlyCupFlowTest {
         compose.onNodeWithTag("cup_title_$first").assertTextContains("👑 4강 우승")
         // Still decided: no home card for last month.
         assertEquals(null, viewModel.pendingMonthlyCup(emptyList(), runBlocking { dao.getAllTournaments().first() }))
+    }
+
+    @Test
+    fun `with one child, a child's cup and a family cup share the month's photo`() {
+        val child = runBlocking { AppDatabase.getDatabase(context).childrenDao().insertChild(ChildEntity(name = "하린", createdAtMillis = 1L)) }
+        fun cup(at: Long, childId: Long?) = TournamentRecord(
+            winnerPhotoId = 1, winnerTitle = "사진", winnerUriString = "content://test/1",
+            timestamp = at, totalParticipants = 4, tournamentTitle = "2026년 10월의 월드컵", monthKey = lastMonth, childId = childId
+        )
+        val family = runBlocking { dao.insertTournament(cup(at = 1_000L, childId = null)) }.toInt()
+        val harin = runBlocking { dao.insertTournament(cup(at = 2_000L, childId = child)) }.toInt()
+        showHome()
+        compose.waitUntil(timeoutMillis = 10_000) { viewModel.children.size == 1 }
+        compose.runOnIdle { viewModel.navigateTo(UiScreen.TournamentHistoryList) }
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("cup_title_$harin").assertTextContains("2026년 10월의 하린 사진", substring = true)
+        compose.onNodeWithTag("cup_title_$family").assertTextContains("👑 4강 우승")
     }
 
     @Test
