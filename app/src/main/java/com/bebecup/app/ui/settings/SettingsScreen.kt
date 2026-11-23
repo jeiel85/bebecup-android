@@ -38,13 +38,14 @@ import androidx.compose.ui.unit.sp
 import com.bebecup.app.BuildConfig
 import com.bebecup.app.domain.nudge.NudgePolicy
 import com.bebecup.app.domain.profile.CalendarDate
-import com.bebecup.app.ui.components.BabyProfileDialog
+import com.bebecup.app.ui.children.FaceIdCard
 import com.bebecup.app.ui.ai.ToggleRow
 import com.bebecup.app.ui.components.ScreenHeader
 import com.bebecup.app.ui.components.rememberNudgeOptIn
 import com.bebecup.app.ui.theme.ThemeMode
 import com.bebecup.app.ui.viewmodel.BabyCupViewModel
 import com.bebecup.app.ui.viewmodel.FaceModelState
+import com.bebecup.app.ui.viewmodel.UiScreen
 import com.bebecup.app.update.UpdateChannel
 import com.bebecup.app.update.UpdateStatus
 import com.bebecup.app.update.VersionParticles
@@ -54,7 +55,6 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(viewModel: BabyCupViewModel) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var deleted by remember { mutableStateOf(false) }
-    var editingProfile by remember { mutableStateOf(false) }
     val optIn = rememberNudgeOptIn(viewModel)
 
     Column(
@@ -69,32 +69,34 @@ fun SettingsScreen(viewModel: BabyCupViewModel) {
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            SettingsCard("아기 정보") {
-                val birth = CalendarDate.parse(viewModel.babyBirthDate)
-                Caption(
-                    if (birth == null) "생일을 알려 주시면 보관함·월드컵·인화함 사진마다 몇 개월 때인지 보여 드려요."
-                    else buildString {
-                        if (viewModel.babyName.isNotBlank()) append("${viewModel.babyName} · ")
-                        append("${birth.year}년 ${birth.month}월 ${birth.day}일생")
-                        viewModel.ageToday()?.let { append(" · 오늘 ${it.longLabel}") }
+            SettingsCard("우리 아이들") {
+                val ages = viewModel.agesToday().toMap()
+                if (viewModel.children.isEmpty()) {
+                    Caption("아이 이름과 생일을 알려 주시면 사진마다 몇 개월 때인지 보여 드려요. 아이가 여럿이면 아이별로 월드컵을 열 수 있어요.")
+                } else {
+                    viewModel.children.forEach { child ->
+                        val birth = CalendarDate.parse(child.birthDate)
+                        Caption(
+                            buildString {
+                                append(child.name)
+                                if (birth != null) append(" · ${birth.year}년 ${birth.month}월 ${birth.day}일생")
+                                ages[child]?.let { append(" · 오늘 ${it.longLabel}") }
+                            }
+                        )
                     }
-                )
+                }
                 OutlinedButton(
-                    onClick = { editingProfile = true },
+                    onClick = { viewModel.navigateTo(UiScreen.Children) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(8.dp)
                         .testTag("settings_baby_profile_btn"),
                     shape = RoundedCornerShape(14.dp)
-                ) { Text(if (birth == null) "아기 정보 입력" else "아기 정보 고치기", fontSize = 13.sp) }
-                if (birth != null) {
-                    TextButton(
-                        onClick = { viewModel.updateBabyProfile("", null) },
-                        modifier = Modifier.padding(horizontal = 8.dp)
-                    ) { Text("아기 정보 지우기", fontSize = 12.sp) }
-                }
+                ) { Text(if (viewModel.children.isEmpty()) "아이 정보 입력" else "아이 정보·얼굴 이름 관리", fontSize = 13.sp) }
                 Caption("이 기기 안에만 저장되고, 휴대폰의 Google 백업에 다른 앱 데이터와 함께 포함될 수 있어요.")
             }
+
+            FaceIdCard(viewModel)
 
             SettingsCard("정리 알림") {
                 ToggleRow("사진이 쌓이면·새 달이 되면 알려주기", viewModel.nudgeEnabled) { enable ->
@@ -127,7 +129,7 @@ fun SettingsScreen(viewModel: BabyCupViewModel) {
 
             SettingsCard("개인정보") {
                 Caption(
-                    "사진 분석은 모두 이 기기 안에서만 해요. 사진과 분석 결과는 밖으로 나가지 않고, 광고·추적 도구도 쓰지 않아요. " +
+                    "사진 분석과 아이 얼굴 구분은 모두 이 기기 안에서만 해요. 사진·분석 결과·얼굴 정보는 밖으로 나가지 않고, 광고·추적 도구도 쓰지 않아요. " +
                         "얼굴 인식에 쓰는 Google ML Kit은 기능 사용 지표(기기 모델, 앱 버전 등)를 Google에 보낼 수 있어요."
                 )
                 OutlinedButton(
@@ -150,23 +152,16 @@ fun SettingsScreen(viewModel: BabyCupViewModel) {
         }
     }
 
-    if (editingProfile) {
-        BabyProfileDialog(
-            initialName = viewModel.babyName,
-            initialBirthDate = viewModel.babyBirthDate,
-            onSave = { name, birthDate ->
-                viewModel.updateBabyProfile(name, birthDate)
-                editingProfile = false
-            },
-            onDismiss = { editingProfile = false }
-        )
-    }
-
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
             title = { Text("분석 데이터 삭제") },
-            text = { Text("기기에 저장된 분석 결과·묶음·세션 기록을 모두 지워요. 사진 원본과 보관함은 그대로예요.") },
+            text = {
+                Text(
+                    "기기에 저장된 분석 결과·묶음·세션 기록과 얼굴 정보(어느 사진에 어느 아이가 있는지 포함)를 모두 지워요. " +
+                        "사진 원본과 보관함, 아이 이름과 생일은 그대로예요."
+                )
+            },
             confirmButton = {
                 Button(onClick = {
                     viewModel.deleteAllAnalysisData()

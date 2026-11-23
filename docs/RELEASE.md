@@ -203,3 +203,10 @@ PLAY_SERVICE_ACCOUNT_JSON        # Play 업로드용 서비스 계정 키 JSON (
 릴리스 작업은 서명 뒤 GitHub APK와 Play AAB의 인증서 SHA-256이 위 두 표의 값과 같은지 확인하고, 다르면 멈춘다.
 
 Play 업로드용 AAB(`play` 빌드)는 GitHub Release에 붙이지 않고 워크플로 산출물(`bebecup-release-aab`)로만 남기며, 이어지는 `play-alpha` 작업이 Alpha 트랙에 올린다(위 "자동 업로드").
+
+## 아이 얼굴 구분 모델 파일 (v0.12.0부터)
+
+앱 릴리스와 별개로 GitHub 릴리스 `face-id-model-v1`(prerelease, **latest 아님**)에 얼굴 구분 모델
+`bebecup-face-id-sface-v1.tflite`와 `LICENSE-SFace-Apache-2.0.txt`·`NOTICE.txt`가 있다. 설치된 앱이 이 주소에서
+받으므로 지우거나 파일을 바꾸지 않는다(앱은 크기·SHA-256이 다르면 받지 않음). 이 릴리스를 latest로 바꾸면 GitHub 빌드의
+업데이트 확인(`releases/latest/download/update.json`)이 깨진다. 새 모델은 새 태그로 올린다(`scripts/face-id-model/README.md`).

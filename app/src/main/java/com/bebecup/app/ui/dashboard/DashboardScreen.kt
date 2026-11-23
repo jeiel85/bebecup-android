@@ -46,7 +46,7 @@ import com.bebecup.app.R
 import com.bebecup.app.data.BabyPhoto
 import com.bebecup.app.data.TournamentRecord
 import com.bebecup.app.ui.components.BabyPhotoIllustration
-import com.bebecup.app.ui.components.BabyProfileDialog
+import com.bebecup.app.ui.components.ChildProfileDialog
 import com.bebecup.app.ui.components.Illustration
 import com.bebecup.app.ui.components.UpdateBannerContent
 import com.bebecup.app.ui.components.rememberNudgeOptIn
@@ -67,7 +67,7 @@ fun DashboardView(
 ) {
     val updateBanner = UpdateChannel.rememberBanner()
     var editingProfile by remember { mutableStateOf(false) }
-    val ageToday = viewModel.ageToday()
+    val agesToday = viewModel.agesToday()
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -87,9 +87,8 @@ fun DashboardView(
         }
         item {
             HomeHeader(
-                ageLine = ageToday?.let { age ->
-                    val who = viewModel.babyName.ifBlank { "우리 아기" }
-                    "오늘 $who ${age.longLabel}"
+                ageLine = agesToday.takeIf { it.isNotEmpty() }?.joinToString(" · ", prefix = "오늘 ") { (child, age) ->
+                    "${child.name} ${age.longLabel}"
                 },
                 onSettings = { viewModel.navigateTo(UiScreen.Settings) }
             )
@@ -115,7 +114,16 @@ fun DashboardView(
                 onPrint = { viewModel.navigateTo(UiScreen.PrintCart) }
             )
         }
-        if (viewModel.babyBirthDate.isBlank() && !viewModel.babyProfilePromptDismissed && bestPhotos.isNotEmpty()) {
+        if (viewModel.showFaceNamingPrompt) {
+            item(key = "face_naming") {
+                FaceNamingCard(
+                    groupCount = viewModel.faceGroups.size,
+                    onOpen = { viewModel.navigateTo(UiScreen.Children) },
+                    onLater = { viewModel.dismissFaceNaming() }
+                )
+            }
+        }
+        if (viewModel.children.none { it.birthDate.isNotBlank() } && !viewModel.babyProfilePromptDismissed && bestPhotos.isNotEmpty()) {
             item {
                 BabyProfilePromptCard(
                     onEnter = { editingProfile = true },
@@ -159,15 +167,47 @@ fun DashboardView(
     }
 
     if (editingProfile) {
-        BabyProfileDialog(
-            initialName = viewModel.babyName,
-            initialBirthDate = viewModel.babyBirthDate,
+        // One child without a birthday yet: ask for theirs. Otherwise start the first child.
+        val child = viewModel.children.singleOrNull()
+        ChildProfileDialog(
+            title = "아이 정보",
+            initialName = child?.name ?: "",
+            initialBirthDate = child?.birthDate ?: "",
             onSave = { name, birthDate ->
-                viewModel.updateBabyProfile(name, birthDate)
+                if (child != null) viewModel.updateChild(child.id, name, birthDate)
+                else viewModel.addChild(name, birthDate)
                 editingProfile = false
             },
             onDismiss = { editingProfile = false }
         )
+    }
+}
+
+/** 아이 얼굴 구분: faces nobody has named yet. */
+@Composable
+private fun FaceNamingCard(groupCount: Int, onOpen: () -> Unit, onLater: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("face_naming_prompt"),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("👶 누구인지 알려 주세요", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "베베컵이 사진에서 얼굴 ${groupCount}명을 찾았어요. 이름을 알려 주시면 아이별로 사진을 나눠 드려요.",
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+            )
+            Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                TextButton(onClick = onLater) { Text("나중에") }
+                TextButton(onClick = onOpen, modifier = Modifier.testTag("face_naming_open")) {
+                    Text("알려 주기", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
     }
 }
 

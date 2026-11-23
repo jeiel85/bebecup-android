@@ -6,6 +6,11 @@ import androidx.test.core.app.ApplicationProvider
 import com.bebecup.app.data.ALL_MIGRATIONS
 import com.bebecup.app.data.AppDatabase
 import com.bebecup.app.data.ai.PhotoAnalysisEntity
+import com.bebecup.app.data.children.ChildEntity
+import com.bebecup.app.data.children.FaceReferenceEntity
+import com.bebecup.app.data.children.FaceState
+import com.bebecup.app.data.children.PhotoChildRow
+import com.bebecup.app.data.children.PhotoFaceEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -111,6 +116,44 @@ class MigrationTest {
         assertEquals(8, cups.single().totalParticipants)
         assertNull(cups.single().monthKey)
         assertEquals(emptyList<String>(), room.babyPhotoDao().getMonthlyCupKeys())
+
+        room.close()
+    }
+
+    @Test
+    fun `v6 adds the children and face tables and marks old photos as not looked at`() = runBlocking {
+        createV2Database()
+
+        val room = Room.databaseBuilder(context, AppDatabase::class.java, dbName)
+            .addMigrations(*ALL_MIGRATIONS)
+            .allowMainThreadQueries()
+            .build()
+        val dao = room.childrenDao()
+
+        assertEquals(0, room.babyPhotoDao().getPhotoById(1)!!.faceIdVersion)
+        assertEquals(1, dao.getKeptPhotosWithoutFaces(1).size)
+
+        val childId = dao.insertChild(ChildEntity(name = "하린", birthDate = "2026-01-31", createdAtMillis = 1L))
+        dao.replaceFaces(
+            photoId = 1,
+            faces = listOf(
+                PhotoFaceEntity(
+                    photoId = 1, boxLeft = 0.1f, boxTop = 0.1f, boxRight = 0.4f, boxBottom = 0.4f,
+                    embedding = ByteArray(512), childId = childId, state = FaceState.MANUAL, modelVersion = 1
+                )
+            ),
+            version = 1
+        )
+        dao.insertReferences(listOf(FaceReferenceEntity(childId = childId, embedding = ByteArray(512), sourceFaceId = 1L, createdAtMillis = 1L, modelVersion = 1)))
+        assertEquals(listOf(PhotoChildRow(photoId = 1, childId = childId)), dao.observePhotoChildren().first())
+        assertEquals(emptyList<Any>(), dao.getKeptPhotosWithoutFaces(1))
+
+        // Deleting a child makes its faces unknown again and drops its named examples.
+        dao.deleteChild(childId)
+        val face = dao.getFacesInPhoto(1).single().face
+        assertNull(face.childId)
+        assertEquals(FaceState.UNKNOWN, face.state)
+        assertEquals(emptyList<Any>(), dao.getReferences(1))
 
         room.close()
     }

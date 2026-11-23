@@ -51,6 +51,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bebecup.app.R
 import com.bebecup.app.data.BabyPhoto
+import com.bebecup.app.data.children.ChildEntity
+import com.bebecup.app.ui.children.ChildNamesBadge
+import com.bebecup.app.ui.children.PhotoChildrenDialog
+import com.bebecup.app.ui.viewmodel.FaceIdState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.FilterChip
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.bebecup.app.ui.components.BabyPhotoIllustration
 import com.bebecup.app.ui.components.EmptyState
 import com.bebecup.app.ui.components.MissingPhotosCard
@@ -73,6 +81,11 @@ fun BestBoxScreen(
         ActivityResultContracts.PickMultipleVisualMedia(maxItems = MAX_PICK)
     ) { uris -> viewModel.addPickedPhotos(uris) }
     val printIds = printCartPhotos.map { it.id }.toSet()
+    var whoPhoto by remember { mutableStateOf<BabyPhoto?>(null) }
+    var childFilter by rememberSaveable { mutableStateOf<Long?>(null) }
+    val children = viewModel.children
+    val filter = childFilter?.takeIf { id -> children.any { it.id == id } }
+    val shown = viewModel.photosOf(bestPhotos, filter)
 
     Column(
         Modifier
@@ -111,6 +124,28 @@ fun BestBoxScreen(
             ) { Text("월드컵 하기", fontSize = 13.sp, fontWeight = FontWeight.Bold) }
         }
 
+        if (children.size >= 2 && bestPhotos.isNotEmpty()) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp)
+            ) {
+                item {
+                    FilterChip(selected = filter == null, onClick = { childFilter = null }, label = { Text("모두") })
+                }
+                items(children, key = { it.id }) { child ->
+                    FilterChip(
+                        selected = filter == child.id,
+                        onClick = { childFilter = child.id },
+                        label = { Text(child.name) },
+                        modifier = Modifier.testTag("best_filter_${child.id}")
+                    )
+                }
+            }
+        }
+
         LaunchedEffect(bestPhotos, printCartPhotos) { viewModel.findMissingPhotos(bestPhotos + printCartPhotos) }
         if (viewModel.missingPhotoIds.isNotEmpty()) {
             MissingPhotosCard(
@@ -140,17 +175,24 @@ fun BestBoxScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                items(bestPhotos, key = { it.id }) { photo ->
+                items(shown, key = { it.id }) { photo ->
                     BestTile(
                         photo = photo,
                         age = viewModel.ageOf(photo),
+                        children = if (children.size >= 2) viewModel.childrenIn(photo) else emptyList(),
+                        canTellWho = children.isNotEmpty() || viewModel.faceIdState == FaceIdState.READY,
                         inPrintCart = photo.id in printIds,
                         onAddToPrint = { viewModel.addToPrintCart(photo) },
+                        onWho = { whoPhoto = photo },
                         onRemove = { viewModel.removeFromBest(photo) }
                     )
                 }
             }
         }
+    }
+
+    whoPhoto?.let { photo ->
+        PhotoChildrenDialog(viewModel = viewModel, photo = photo, onDismiss = { whoPhoto = null })
     }
 }
 
@@ -158,8 +200,11 @@ fun BestBoxScreen(
 private fun BestTile(
     photo: BabyPhoto,
     age: BabyAge?,
+    children: List<ChildEntity>,
+    canTellWho: Boolean,
     inPrintCart: Boolean,
     onAddToPrint: () -> Unit,
+    onWho: () -> Unit,
     onRemove: () -> Unit
 ) {
     var menuOpen by remember { mutableStateOf(false) }
@@ -183,6 +228,7 @@ private fun BestTile(
                     .padding(horizontal = 6.dp, vertical = 2.dp)
             )
         }
+        ChildNamesBadge(children, Modifier.align(Alignment.TopEnd))
         if (age != null) AgeBadge(age, Modifier.align(Alignment.BottomStart))
         Box(
             Modifier
@@ -208,6 +254,15 @@ private fun BestTile(
                     menuOpen = false
                 }
             )
+            if (canTellWho) {
+                DropdownMenuItem(
+                    text = { Text("누구 사진인지 보기·고치기") },
+                    onClick = {
+                        onWho()
+                        menuOpen = false
+                    }
+                )
+            }
             DropdownMenuItem(
                 text = { Text("보관함에서 빼기 (사진은 그대로)") },
                 onClick = {

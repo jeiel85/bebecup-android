@@ -10,6 +10,10 @@ import com.bebecup.app.data.ai.PhotoAnalysisDao
 import com.bebecup.app.data.ai.PhotoAnalysisEntity
 import com.bebecup.app.data.ai.PhotoClusterDao
 import com.bebecup.app.data.ai.PhotoClusterEntity
+import com.bebecup.app.data.children.ChildEntity
+import com.bebecup.app.data.children.ChildrenDao
+import com.bebecup.app.data.children.FaceReferenceEntity
+import com.bebecup.app.data.children.PhotoFaceEntity
 
 @Database(
     entities = [
@@ -17,9 +21,12 @@ import com.bebecup.app.data.ai.PhotoClusterEntity
         TournamentRecord::class,
         PhotoAnalysisEntity::class,
         PhotoClusterEntity::class,
-        AiCurationSessionEntity::class
+        AiCurationSessionEntity::class,
+        ChildEntity::class,
+        PhotoFaceEntity::class,
+        FaceReferenceEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -27,6 +34,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun photoAnalysisDao(): PhotoAnalysisDao
     abstract fun photoClusterDao(): PhotoClusterDao
     abstract fun aiCurationSessionDao(): AiCurationSessionDao
+    abstract fun childrenDao(): ChildrenDao
 
     companion object {
         @Volatile
@@ -40,7 +48,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "baby_photo_worldcup_database"
                 )
                     // Commercial release: explicit migrations preserve user data
-                    // across updates (v2 tournament app → v5). See
+                    // across updates (v2 tournament app → v6). See
                     // [ALL_MIGRATIONS] / Migrations.kt.
                     .addMigrations(*ALL_MIGRATIONS)
                     // Only wipe on an (unsupported) downgrade, never on upgrade.

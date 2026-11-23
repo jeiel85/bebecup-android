@@ -50,10 +50,17 @@ import com.bebecup.app.ui.viewmodel.UiScreen
  */
 @Composable
 fun WorldCupSetupView(viewModel: BabyCupViewModel, bestPhotos: List<BabyPhoto>) {
-    val months = remember(bestPhotos) { MonthlyCup.months(bestPhotos.map { it.takenDate }) }
+    // Whose cup: only children with at least two saved photos can have one.
+    val childChoices = viewModel.children
+        .map { it to viewModel.photosOf(bestPhotos, it.id).size }
+        .filter { it.second >= 2 }
+    val childId = viewModel.worldCupChildId?.takeIf { id -> childChoices.any { it.first.id == id } }
+    val childName = childChoices.firstOrNull { it.first.id == childId }?.first?.name
+    val childPhotos = viewModel.photosOf(bestPhotos, childId)
+    val months = remember(childPhotos) { MonthlyCup.months(childPhotos.map { it.takenDate }) }
     // A month that no longer has enough photos (e.g. from an old reminder) falls back to "최근".
     val month = viewModel.worldCupMonth?.takeIf { key -> months.any { it.key == key } }
-    val pool = remember(bestPhotos, month) { viewModel.worldCupPool(bestPhotos, month) }
+    val pool = remember(childPhotos, month) { viewModel.worldCupPool(childPhotos, month, childId) }
     val sizes = TournamentEngine.availableSizes(pool.size)
     var selected by rememberSaveable(sizes) { mutableIntStateOf(sizes.lastOrNull() ?: 0) }
 
@@ -62,7 +69,10 @@ fun WorldCupSetupView(viewModel: BabyCupViewModel, bestPhotos: List<BabyPhoto>) 
             .fillMaxSize()
             .testTag("world_cup_setup_view")
     ) {
-        ScreenHeader(title = "가족 이상형 월드컵", onBack = { viewModel.navigateBack() })
+        ScreenHeader(
+            title = childName?.let { "$it 이상형 월드컵" } ?: "가족 이상형 월드컵",
+            onBack = { viewModel.navigateBack() }
+        )
 
         if (sizes.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -88,15 +98,36 @@ fun WorldCupSetupView(viewModel: BabyCupViewModel, bestPhotos: List<BabyPhoto>) 
         ) {
             Illustration(R.drawable.illus_worldcup, size = 200.dp)
             val label = month?.let { viewModel.monthLabel(it) }
+            val whose = childName?.let { "$it 사진" } ?: "사진"
             Text(
-                if (label == null) "보관함의 최근 사진 ${selected}장이 1:1로 겨뤄요.\n가족과 함께 골라 최고의 한 장을 뽑아 보세요!"
-                else "${label}에 찍은 사진 ${selected}장이 1:1로 겨뤄요.\n우승 사진은 ${label}의 사진으로 우승 전당에 남아요!",
+                if (label == null) "보관함의 최근 $whose ${selected}장이 1:1로 겨뤄요.\n가족과 함께 골라 최고의 한 장을 뽑아 보세요!"
+                else "${label}에 찍은 $whose ${selected}장이 1:1로 겨뤄요.\n우승 사진은 ${label}의 사진으로 우승 전당에 남아요!",
                 fontSize = 14.sp,
                 lineHeight = 21.sp,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
                 modifier = Modifier.testTag("world_cup_setup_description")
             )
+            if (childChoices.isNotEmpty() && (viewModel.children.size >= 2 || childChoices.single().second < bestPhotos.size)) {
+                Spacer(Modifier.height(2.dp))
+                Text("누구의 월드컵인가요?", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    item {
+                        Choice(
+                            text = "모두 · ${bestPhotos.size}장",
+                            selected = childId == null,
+                            testTag = "cup_child_all"
+                        ) { viewModel.selectWorldCupChild(null) }
+                    }
+                    items(childChoices, key = { it.first.id }) { (child, count) ->
+                        Choice(
+                            text = "${child.name} · ${count}장",
+                            selected = childId == child.id,
+                            testTag = "cup_child_${child.id}"
+                        ) { viewModel.selectWorldCupChild(child.id) }
+                    }
+                }
+            }
             if (months.isNotEmpty()) {
                 Spacer(Modifier.height(2.dp))
                 Text("어떤 사진으로 할까요?", fontSize = 14.sp, fontWeight = FontWeight.Bold)
@@ -132,7 +163,7 @@ fun WorldCupSetupView(viewModel: BabyCupViewModel, bestPhotos: List<BabyPhoto>) 
         }
 
         Button(
-            onClick = { viewModel.startWorldCup(selected, month) },
+            onClick = { viewModel.startWorldCup(selected, month, childId) },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(20.dp)

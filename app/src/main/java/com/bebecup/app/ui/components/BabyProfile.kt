@@ -36,20 +36,24 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Asks for the baby's name (optional) and birthday. [onSave] gets the trimmed
- * name and the birthday as "yyyy-MM-dd"; it is only enabled once a birthday is
- * chosen, since the birthday is what the ages need.
+ * Asks for a child's name and (optionally) birthday. [onSave] gets the trimmed
+ * name and the birthday as "yyyy-MM-dd" or null. The name is required: with
+ * more than one child it is how the app tells them apart. [onDelete] adds a
+ * "이 아이 지우기" button (editing an existing child).
  */
 @Composable
-fun BabyProfileDialog(
+fun ChildProfileDialog(
+    title: String,
     initialName: String,
     initialBirthDate: String,
-    onSave: (name: String, birthDate: String) -> Unit,
-    onDismiss: () -> Unit
+    onSave: (name: String, birthDate: String?) -> Unit,
+    onDismiss: () -> Unit,
+    onDelete: (() -> Unit)? = null
 ) {
     var name by remember { mutableStateOf(initialName) }
     var birth by remember { mutableStateOf(CalendarDate.parse(initialBirthDate)) }
     var pickingBirth by remember { mutableStateOf(false) }
+    var confirmingDelete by remember { mutableStateOf(false) }
 
     if (pickingBirth) {
         BirthDatePickerDialog(
@@ -58,16 +62,27 @@ fun BabyProfileDialog(
             onDismiss = { pickingBirth = false }
         )
     }
+    if (confirmingDelete && onDelete != null) {
+        AlertDialog(
+            onDismissRequest = { confirmingDelete = false },
+            title = { Text("${initialName.ifBlank { "이 아이" }} 정보를 지울까요?") },
+            text = { Text("사진은 그대로예요. 이 아이로 알려 주신 얼굴은 다시 '누구인지 모름'이 돼요.") },
+            confirmButton = {
+                Button(onClick = { confirmingDelete = false; onDelete() }) { Text("지우기") }
+            },
+            dismissButton = { TextButton(onClick = { confirmingDelete = false }) { Text("취소") } }
+        )
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("아기 정보") },
+        title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it.take(20) },
-                    label = { Text("이름이나 태명 (선택)") },
+                    label = { Text("이름이나 태명") },
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -80,20 +95,29 @@ fun BabyProfileDialog(
                         .fillMaxWidth()
                         .testTag("baby_birth_btn")
                 ) {
-                    Text(birth?.let { "생일 ${it.year}년 ${it.month}월 ${it.day}일" } ?: "생일 고르기")
+                    Text(birth?.let { "생일 ${it.year}년 ${it.month}월 ${it.day}일" } ?: "생일 고르기 (선택)")
+                }
+                if (birth != null) {
+                    TextButton(onClick = { birth = null }) { Text("생일 지우기", fontSize = 12.sp) }
                 }
                 Text(
-                    "이 기기 안에만 저장돼요. 사진마다 몇 개월 때 사진인지 보여 드려요.",
+                    "이 기기 안에만 저장돼요. 생일을 알려 주시면 사진마다 몇 개월 때 사진인지 보여 드려요.",
                     fontSize = 12.sp,
                     lineHeight = 17.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
                 )
+                if (onDelete != null) {
+                    TextButton(
+                        onClick = { confirmingDelete = true },
+                        modifier = Modifier.testTag("child_delete_btn")
+                    ) { Text("이 아이 지우기", fontSize = 12.sp, color = MaterialTheme.colorScheme.error) }
+                }
             }
         },
         confirmButton = {
             Button(
-                onClick = { birth?.let { onSave(name.trim(), it.toString()) } },
-                enabled = birth != null,
+                onClick = { onSave(name.trim(), birth?.toString()) },
+                enabled = name.isNotBlank(),
                 modifier = Modifier.testTag("baby_profile_save_btn")
             ) { Text("저장") }
         },

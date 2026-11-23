@@ -31,6 +31,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bebecup.app.ui.ai.AiCurationResultScreen
 import com.bebecup.app.ui.ai.AiScanProgressScreen
 import com.bebecup.app.ui.ai.AiScanSetupScreen
+import com.bebecup.app.ui.children.ChildrenScreen
 import com.bebecup.app.ui.dashboard.DashboardView
 import com.bebecup.app.ui.history.TournamentHistoryListView
 import com.bebecup.app.ui.onboarding.OnboardingScreen
@@ -146,6 +147,7 @@ fun MainContentScreen(
                     is UiScreen.AiScanProgress -> AiScanProgressScreen(viewModel = viewModel)
                     is UiScreen.AiCurationResult -> AiCurationResultScreen(viewModel = viewModel)
                     is UiScreen.Settings -> SettingsScreen(viewModel = viewModel)
+                    is UiScreen.Children -> ChildrenScreen(viewModel = viewModel, bestPhotos = bestPhotos)
                 }
             }
         }

@@ -147,6 +147,16 @@ android {
   testOptions { unitTests { isIncludeAndroidResources = true } }
 }
 
+// The github APK is downloaded whole (no Play split delivery) and carries native code for
+// four ABIs (ML Kit face detection, LiteRT). Stored uncompressed that is ~60 MB; compressed
+// it is about half. Android extracts them at install. The play AAB keeps the default: Play
+// already serves each phone only its ABI.
+androidComponents {
+  onVariants(selector().withFlavor("channel" to "github")) { variant ->
+    variant.packaging.jniLibs.useLegacyPackaging.set(true)
+  }
+}
+
 // Export Room schemas so we can author + verify explicit migrations.
 ksp {
   arg("room.schemaLocation", "$projectDir/schemas")
@@ -196,6 +206,12 @@ dependencies {
   // Play build only: asks the Google Play app whether a newer version is out (home banner).
   // Play installs it; the app never does.
   "playImplementation"(libs.play.app.update)
+  // Telling siblings apart (아이 얼굴 구분): an SFace face-embedding model run with TensorFlow
+  // Lite. The model file (~10 MB) is not in either build; the app downloads it when the parent
+  // turns the feature on (ai/faceid/FaceIdModelStore). The interpreter itself comes from Google
+  // Play services in the play build and is bundled (LiteRT) in the github build, like ML Kit.
+  "playImplementation"(libs.play.services.tflite.java)
+  "githubImplementation"(libs.litert)
   // implementation(libs.play.services.location)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)

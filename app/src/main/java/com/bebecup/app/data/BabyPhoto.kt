@@ -1,5 +1,6 @@
 package com.bebecup.app.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.io.Serializable
@@ -17,5 +18,7 @@ data class BabyPhoto(
     val matchesCount: Int = 0,          // Total rounds or matchups won across all World Cups
     val isInPrintCart: Boolean = false, // Marked for ZZIXX print selection
     val printQuantity: Int = 1,         // Print count
-    val printSize: String = "4x6"       // Size e.g., "3x5", "4x6", "D4", "Wallet"
+    val printSize: String = "4x6",      // Size e.g., "3x5", "4x6", "D4", "Wallet"
+    /** Face-ID model version whose faces are stored for this photo (photo_faces); 0 = not looked at. */
+    @ColumnInfo(defaultValue = "0") val faceIdVersion: Int = 0
 ) : Serializable

@@ -13,6 +13,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  *  - v3: + AI curation tables (photo_analysis, photo_clusters, ai_curation_sessions).
  *  - v4: + photo_analysis.dHash (near-duplicate clustering).
  *  - v5: + tournament_records.monthKey (이달의 월드컵).
+ *  - v6: + children, photo_faces, face_references, baby_photos.faceIdVersion (아이 얼굴 구분).
  */
 
 /** v2 → v3: add the AI curation tables. Existing photos/tournaments are preserved. */
@@ -67,5 +68,41 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
+/**
+ * v5 → v6: the family's children and the faces that tell them apart. Existing
+ * photos start with faceIdVersion 0 (not looked at yet). The one-child profile
+ * kept in prefs before v6 becomes the first child on the next launch
+ * (BabyCupViewModel), since prefs are not reachable from here.
+ */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `baby_photos` ADD COLUMN `faceIdVersion` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `children` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, " +
+                "`birthDate` TEXT NOT NULL, `createdAtMillis` INTEGER NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `photo_faces` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `photoId` INTEGER NOT NULL, " +
+                "`boxLeft` REAL NOT NULL, `boxTop` REAL NOT NULL, `boxRight` REAL NOT NULL, `boxBottom` REAL NOT NULL, " +
+                "`embedding` BLOB NOT NULL, `childId` INTEGER, `state` TEXT NOT NULL DEFAULT 'unknown', " +
+                "`modelVersion` INTEGER NOT NULL, " +
+                "FOREIGN KEY(`photoId`) REFERENCES `baby_photos`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                "FOREIGN KEY(`childId`) REFERENCES `children`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )"
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_photo_faces_photoId` ON `photo_faces` (`photoId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_photo_faces_childId` ON `photo_faces` (`childId`)")
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `face_references` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `childId` INTEGER, `embedding` BLOB NOT NULL, " +
+                "`sourceFaceId` INTEGER, `createdAtMillis` INTEGER NOT NULL, `modelVersion` INTEGER NOT NULL, " +
+                "FOREIGN KEY(`childId`) REFERENCES `children`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_face_references_childId` ON `face_references` (`childId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_face_references_sourceFaceId` ON `face_references` (`sourceFaceId`)")
+    }
+}
+
 /** All migrations, in order, for registration on the database builder. */
-val ALL_MIGRATIONS = arrayOf(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+val ALL_MIGRATIONS = arrayOf(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)

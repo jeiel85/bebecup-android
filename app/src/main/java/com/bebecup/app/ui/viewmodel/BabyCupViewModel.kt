@@ -15,6 +15,9 @@ import com.bebecup.app.ai.AiModelAvailability
 import com.bebecup.app.ai.FaceModelInstaller
 import com.bebecup.app.ai.FaceQualityAnalyzer
 import com.bebecup.app.ai.PhotoQualityAnalyzer
+import com.bebecup.app.ai.faceid.FaceIdModelStore
+import com.bebecup.app.ai.faceid.FaceIdUnavailableException
+import com.bebecup.app.ai.faceid.FaceIdentityReader
 import com.bebecup.app.data.AppDatabase
 import com.bebecup.app.data.BabyPhoto
 import com.bebecup.app.data.BabyPhotoRepository
@@ -22,6 +25,10 @@ import com.bebecup.app.data.TournamentRecord
 import com.bebecup.app.data.ai.AiCurationSessionEntity
 import com.bebecup.app.data.ai.CurationStatus
 import com.bebecup.app.data.ai.RoomAiCurationRepository
+import com.bebecup.app.data.children.ChildEntity
+import com.bebecup.app.data.children.ChildrenDao
+import com.bebecup.app.data.children.FaceInPhoto
+import com.bebecup.app.data.children.FamilyFaces
 import com.bebecup.app.data.media.MediaStorePhotoSource
 import com.bebecup.app.data.media.PhotoAccess
 import com.bebecup.app.data.media.PhotoMetadataReader
@@ -47,7 +54,9 @@ import com.bebecup.app.nudge.UnsortedPhotoCounter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -79,6 +88,9 @@ sealed interface UiScreen {
     // ③ 인화
     object PrintCart : UiScreen
 
+    /** 우리 아이들: the children, and faces waiting for a name (아이 얼굴 구분). */
+    object Children : UiScreen
+
     object Settings : UiScreen
 }
 
@@ -102,6 +114,10 @@ class BabyCupViewModel(
     private val comparePicks = CompareParentPickWithAiPickUseCase()
     private val faceModelInstaller = FaceModelInstaller(application)
     private val metadataReader = PhotoMetadataReader(application)
+    private val childrenDao: ChildrenDao
+    private val faceIdStore = FaceIdModelStore(application)
+    private var faceIdReader: FaceIdentityReader? = null
+    private val familyFaces: FamilyFaces
 
     val bestPhotos: StateFlow<List<BabyPhoto>>
     val printCartPhotos: StateFlow<List<BabyPhoto>>
@@ -154,15 +170,37 @@ class BabyCupViewModel(
     var faceModelProgress by mutableStateOf<Float?>(null)
         private set
 
-    // ---------------- Baby profile (on this device only) ----------------
+    // ---------------- Children (on this device only) ----------------
 
-    var babyName by mutableStateOf(prefs.babyName)
+    /** The family's children, oldest entry first. */
+    var children by mutableStateOf<List<ChildEntity>>(emptyList())
         private set
-    /** "yyyy-MM-dd", or "" when the parent has not given it. */
-    var babyBirthDate by mutableStateOf(prefs.babyBirthDate)
+    /** photoId → ids of the children whose faces are in it (face-ID and the parent's corrections). */
+    var photoChildren by mutableStateOf<Map<Int, Set<Long>>>(emptyMap())
         private set
     var babyProfilePromptDismissed by mutableStateOf(prefs.babyProfilePromptDismissed)
         private set
+
+    // ---------------- 아이 얼굴 구분 (face-ID) ----------------
+
+    var faceIdState by mutableStateOf(if (faceIdStore.isInstalled()) FaceIdState.READY else FaceIdState.NOT_INSTALLED)
+        private set
+    /** Model download progress 0..1 while [FaceIdState.DOWNLOADING]. */
+    var faceIdProgress by mutableStateOf<Float?>(null)
+        private set
+    /** Looking at kept photos in the background (after the download, at start). */
+    var faceIdBusy by mutableStateOf(false)
+        private set
+    /** Unknown faces grouped by likeness, waiting for the parent to name them. */
+    var faceGroups by mutableStateOf<List<FamilyFaces.Group>>(emptyList())
+        private set
+    private var newestUnknownFaceId by mutableStateOf(0L)
+    private var faceNamingDismissedFaceId by mutableStateOf(prefs.faceNamingDismissedFaceId)
+    private var faceIdJob: Job? = null
+
+    /** Home asks for names when there are groups the parent has not passed on yet. */
+    val showFaceNamingPrompt: Boolean
+        get() = faceGroups.isNotEmpty() && newestUnknownFaceId > faceNamingDismissedFaceId
 
     // ---------------- Curation round (transient) ----------------
 
@@ -217,6 +255,11 @@ class BabyCupViewModel(
         private set
     /** Month of the cup being played; recorded with its winner. */
     private var playingMonth: String? = null
+    /** Child chosen on the setup screen; null = every saved photo. */
+    var worldCupChildId by mutableStateOf<Long?>(null)
+        private set
+    /** Child of the cup being played; its name goes into the recorded title. */
+    private var playingChildId: Long? = null
     var monthlyCupSkippedMonth by mutableStateOf(prefs.monthlyCupSkippedMonth)
         private set
 
@@ -235,6 +278,8 @@ class BabyCupViewModel(
         explainTopPhotos = ExplainTopPhotosUseCase(repository, aiRepository, AiModelAvailability().explainer())
         buildAiShortlist = BuildAiShortlistUseCase(repository, aiRepository)
         buildRejectedList = BuildRejectedListUseCase(repository, aiRepository)
+        childrenDao = database.childrenDao()
+        familyFaces = FamilyFaces(childrenDao, reader = ::faceReaderOrNull)
 
         if (!prefs.onboardingSeen) currentScreen = UiScreen.Onboarding
 
@@ -242,8 +287,25 @@ class BabyCupViewModel(
         printCartPhotos = repository.printCartPhotos.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
         tournaments = repository.allTournaments.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+        viewModelScope.launch { childrenDao.observeChildren().collect { children = it } }
+        viewModelScope.launch {
+            childrenDao.observePhotoChildren().collect { rows ->
+                photoChildren = rows.groupBy({ it.photoId }, { it.childId }).mapValues { it.value.toSet() }
+            }
+        }
+        viewModelScope.launch {
+            childrenDao.observeNewestUnknownFaceId(FamilyFaces.VERSION).collect { newestUnknownFaceId = it }
+        }
+
         fixKeptPhotoDates()
+        moveLegacyProfile()
         restoreTournament()
+        if (faceIdState == FaceIdState.READY) lookAtKeptPhotos()
+    }
+
+    override fun onCleared() {
+        faceIdReader?.close()
+        faceIdReader = null
     }
 
     // ================= Navigation =================
@@ -321,10 +383,12 @@ class BabyCupViewModel(
 
     // ================= Onboarding & nudge =================
 
-    fun completeOnboarding() {
+    /** [downloadFaceId]: the parent asked to turn on 아이 얼굴 구분 on the last page. */
+    fun completeOnboarding(downloadFaceId: Boolean = false) {
         prefs.onboardingSeen = true
         // Start fetching the face model now so the first scan doesn't wait.
         faceModelInstaller.requestInBackground()
+        if (downloadFaceId) downloadFaceIdModel()
         navigateHome()
         refreshHomeStatus()
     }
@@ -394,19 +458,40 @@ class BabyCupViewModel(
         }
     }
 
-    // ================= 아기 정보 =================
+    // ================= 우리 아이들 =================
 
-    /**
-     * Save the baby's name ("" to leave it out) and birthday ("yyyy-MM-dd",
-     * or null to clear it). Both stay in this app's private storage.
-     */
-    fun updateBabyProfile(name: String, birthDate: String?) {
-        val trimmed = name.trim().take(MAX_BABY_NAME)
+    /** Add a child (name required, birthday "yyyy-MM-dd" or null); [faceIds] are named as them at once. */
+    fun addChild(name: String, birthDate: String?, faceIds: List<Long> = emptyList()): Job {
+        val trimmed = name.trim().take(MAX_CHILD_NAME)
         val birth = CalendarDate.parse(birthDate)?.toString() ?: ""
-        prefs.babyName = trimmed
-        prefs.babyBirthDate = birth
-        babyName = trimmed
-        babyBirthDate = birth
+        return viewModelScope.launch {
+            if (trimmed.isEmpty()) return@launch
+            val id = childrenDao.insertChild(
+                ChildEntity(name = trimmed, birthDate = birth, createdAtMillis = System.currentTimeMillis())
+            )
+            if (faceIds.isNotEmpty()) {
+                familyFaces.name(faceIds, id)
+                refreshFaceGroups()
+            }
+        }
+    }
+
+    /** Rename a child or change their birthday (null or an impossible date clears it). */
+    fun updateChild(id: Long, name: String, birthDate: String?) {
+        val trimmed = name.trim().take(MAX_CHILD_NAME)
+        if (trimmed.isEmpty()) return
+        val birth = CalendarDate.parse(birthDate)?.toString() ?: ""
+        viewModelScope.launch { childrenDao.updateChild(id, trimmed, birth) }
+    }
+
+    /** Remove a child. Their faces become unknown again; the photos stay. */
+    fun deleteChild(id: Long) {
+        if (worldCupChildId == id) worldCupChildId = null
+        viewModelScope.launch {
+            childrenDao.deleteChild(id)
+            familyFaces.rematch()
+            refreshFaceGroups()
+        }
     }
 
     fun dismissBabyProfilePrompt() {
@@ -414,14 +499,136 @@ class BabyCupViewModel(
         babyProfilePromptDismissed = true
     }
 
-    /** How old the baby was in [photo]; null without a birthday or for photos before it. */
-    fun ageOf(photo: BabyPhoto): BabyAge? = BabyAge.on(babyBirthDate, photo.takenDate)
+    /** The children whose faces are in [photo]. */
+    fun childrenIn(photo: BabyPhoto): List<ChildEntity> {
+        val ids = photoChildren[photo.id] ?: return emptyList()
+        return children.filter { it.id in ids }
+    }
 
-    /** How old the baby is today; null without a birthday. */
-    fun ageToday(): BabyAge? = BabyAge.on(
-        babyBirthDate,
-        SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Date())
-    )
+    /**
+     * How old the child in [photo] was: the one child found in it, or — in a
+     * one-child family — that child for photos where nobody was found. Null with
+     * no birthday, several children in the photo, or photos before the birthday.
+     */
+    fun ageOf(photo: BabyPhoto): BabyAge? {
+        val inPhoto = childrenIn(photo)
+        val child = when {
+            inPhoto.size == 1 -> inPhoto.single()
+            inPhoto.isEmpty() && children.size == 1 -> children.single()
+            else -> return null
+        }
+        return BabyAge.on(child.birthDate, photo.takenDate)
+    }
+
+    /** Each child with a birthday and how old they are today. */
+    fun agesToday(): List<Pair<ChildEntity, BabyAge>> {
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Date())
+        return children.mapNotNull { child -> BabyAge.on(child.birthDate, today)?.let { child to it } }
+    }
+
+    /** Before v6 the one baby's name and birthday lived in prefs; they become the first child. */
+    private fun moveLegacyProfile() {
+        if (prefs.legacyProfileMoved) return
+        viewModelScope.launch {
+            val name = prefs.babyName.trim().take(MAX_CHILD_NAME)
+            val birth = CalendarDate.parse(prefs.babyBirthDate)?.toString() ?: ""
+            if ((name.isNotEmpty() || birth.isNotEmpty()) && childrenDao.getChildren().isEmpty()) {
+                childrenDao.insertChild(
+                    ChildEntity(
+                        name = name.ifEmpty { DEFAULT_CHILD_NAME },
+                        birthDate = birth,
+                        createdAtMillis = System.currentTimeMillis()
+                    )
+                )
+            }
+            prefs.legacyProfileMoved = true
+        }
+    }
+
+    // ================= 아이 얼굴 구분 =================
+
+    private fun faceReaderOrNull(): FaceIdentityReader? {
+        if (!faceIdStore.isInstalled()) return null
+        return faceIdReader ?: FaceIdentityReader(getApplication(), metadataReader, faceIdStore).also { faceIdReader = it }
+    }
+
+    /** Onboarding or 설정: download the face-ID model (~10 MB), then look at the kept photos. */
+    fun downloadFaceIdModel() {
+        if (faceIdState == FaceIdState.DOWNLOADING) return
+        viewModelScope.launch {
+            faceIdState = FaceIdState.DOWNLOADING
+            faceIdProgress = 0f
+            faceIdState = try {
+                faceIdStore.download { p -> viewModelScope.launch { faceIdProgress = p } }
+                FaceIdState.READY
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "face-ID model download failed", e)
+                FaceIdState.FAILED
+            }
+            faceIdProgress = null
+            if (faceIdState == FaceIdState.READY) lookAtKeptPhotos()
+        }
+    }
+
+    /**
+     * 설정 > 받은 파일 지우기: frees the space and stops looking at new photos. Names
+     * already given and photos already sorted by child stay.
+     */
+    fun deleteFaceIdModel() {
+        if (faceIdState == FaceIdState.DOWNLOADING || faceIdBusy || aiIsScanning) return
+        faceIdReader?.close()
+        faceIdReader = null
+        faceIdStore.delete()
+        faceIdState = FaceIdState.NOT_INSTALLED
+    }
+
+    /** Find faces in kept photos (보관함·인화함) not looked at yet, in the background. */
+    fun lookAtKeptPhotos() {
+        if (faceIdJob?.isActive == true || !faceIdStore.isInstalled()) return
+        faceIdJob = viewModelScope.launch {
+            faceIdBusy = true
+            try {
+                familyFaces.identify(familyFaces.keptPhotosToLookAt())
+                refreshFaceGroups()
+            } catch (e: FaceIdUnavailableException) {
+                Log.w(TAG, "face-ID unavailable", e)
+                faceIdState = FaceIdState.UNAVAILABLE
+            } finally {
+                faceIdBusy = false
+            }
+        }
+    }
+
+    /** 설정 > 다시 시도 after [FaceIdState.UNAVAILABLE]. */
+    fun retryFaceId() {
+        if (faceIdBusy) return
+        faceIdReader?.close()
+        faceIdReader = null
+        faceIdState = if (faceIdStore.isInstalled()) FaceIdState.READY else FaceIdState.NOT_INSTALLED
+        if (faceIdState == FaceIdState.READY) lookAtKeptPhotos()
+    }
+
+    fun refreshFaceGroups() {
+        viewModelScope.launch { faceGroups = familyFaces.unknownGroups() }
+    }
+
+    /** The parent named faces: [childId], or null for "none of the children". */
+    fun nameFaces(faceIds: List<Long>, childId: Long?): Job =
+        viewModelScope.launch {
+            familyFaces.name(faceIds, childId)
+            refreshFaceGroups()
+        }
+
+    suspend fun facesIn(photo: BabyPhoto): List<FaceInPhoto> = familyFaces.facesIn(photo.id)
+
+    suspend fun faceOf(child: ChildEntity): FaceInPhoto? = familyFaces.faceOf(child.id)
+
+    fun dismissFaceNaming() {
+        prefs.faceNamingDismissedFaceId = newestUnknownFaceId
+        faceNamingDismissedFaceId = newestUnknownFaceId
+    }
 
     // ================= ① 정리하기 (AI curation) =================
 
@@ -551,6 +758,22 @@ class BabyCupViewModel(
                 aiApprovedIds.addAll(shortlist.map { it.photo.id })
                 aiRejectedCount = (analyzedInScan - shortlist.size).coerceAtLeast(0)
 
+                // 아이 얼굴 구분: only the photos shown in the result can be kept, so
+                // only those (with a face) are looked at.
+                if (faceIdState == FaceIdState.READY) {
+                    aiProgressStep = STEP_FACE_ID
+                    faceIdJob?.join()
+                    try {
+                        familyFaces.identify(
+                            (shortlist + aiRejectedItems).filter { it.analysis.faceDetected }.map { it.photo }
+                        )
+                        faceGroups = familyFaces.unknownGroups()
+                    } catch (e: FaceIdUnavailableException) {
+                        Log.w(TAG, "face-ID unavailable during the scan", e)
+                        faceIdState = FaceIdState.UNAVAILABLE
+                    }
+                }
+
                 aiRepository.getSession(sessionId)?.let { s ->
                     aiRepository.updateSession(
                         s.copy(
@@ -597,8 +820,10 @@ class BabyCupViewModel(
         viewModelScope.launch {
             repository.markBest(approved.map { it.photo.id }, System.currentTimeMillis())
             // Every scan adds a row per gallery photo; keep only what the family kept.
+            // Their faces go with them (named faces stay as examples).
             val pruned = repository.pruneUnkeptPhotos()
             if (pruned > 0) Log.i(TAG, "dropped $pruned scanned photos that were not kept")
+            refreshFaceGroups()
             prefs.lastReviewedAtMillis = maxOf(prefs.lastReviewedAtMillis, endMillis)
             lastReviewedAtMillis = prefs.lastReviewedAtMillis
             unsortedCount = if (canReadPhotos) 0 else null
@@ -610,6 +835,7 @@ class BabyCupViewModel(
                 val entrants = approved.take(size)
                 aiTopPickId = entrants.first().photo.id
                 playingMonth = null
+                playingChildId = null
                 launchTournament(entrants.map { it.photo }, asRoot = true)
             } else {
                 navigateAsRoot(UiScreen.BestBox)
@@ -618,10 +844,16 @@ class BabyCupViewModel(
         }
     }
 
-    /** Privacy: wipe all on-device analysis/clusters/sessions. */
+    /**
+     * Privacy: wipe all on-device analysis/clusters/sessions and every face vector
+     * (which faces are whose, too). The children's names and birthdays stay.
+     */
     fun deleteAllAnalysisData() {
         viewModelScope.launch {
+            faceIdJob?.cancelAndJoin()
             aiRepository.deleteAllLocalAnalysisData()
+            familyFaces.deleteAll()
+            faceGroups = emptyList()
             aiShortlist = emptyList()
             aiRejectedItems = emptyList()
             aiApprovedIds.clear()
@@ -664,6 +896,7 @@ class BabyCupViewModel(
                 ).toInt()
             }
             repository.markBest(ids, System.currentTimeMillis())
+            if (faceIdState == FaceIdState.READY) lookAtKeptPhotos()
         }
     }
 
@@ -721,6 +954,11 @@ class BabyCupViewModel(
         worldCupMonth = month
     }
 
+    /** Whose cup: [childId], or null for every saved photo. */
+    fun selectWorldCupChild(childId: Long?) {
+        worldCupChildId = childId
+    }
+
     /** Last month's cup when it is due (home card); see [MonthlyCup.pending]. */
     fun pendingMonthlyCup(best: List<BabyPhoto>, records: List<TournamentRecord>): MonthlyCup.Month? =
         MonthlyCup.pending(
@@ -739,20 +977,27 @@ class BabyCupViewModel(
         monthlyCupSkippedMonth = month
     }
 
+    /** Saved photos with [childId] in them, or all of them when [childId] is null. */
+    fun photosOf(best: List<BabyPhoto>, childId: Long?): List<BabyPhoto> =
+        if (childId == null) best else best.filter { childId in photoChildren[it.id].orEmpty() }
+
     /**
      * Photos a cup would draw from, most recently saved first: those taken in
-     * [month], or all saved photos when [month] is null.
+     * [month] (all months when null) with [childId] in them (anyone when null).
      */
-    fun worldCupPool(best: List<BabyPhoto>, month: String?): List<BabyPhoto> =
-        best.filter { month == null || MonthlyCup.monthKeyOf(it.takenDate) == month }
+    fun worldCupPool(best: List<BabyPhoto>, month: String?, childId: Long? = worldCupChildId): List<BabyPhoto> =
+        photosOf(best, childId)
+            .filter { month == null || MonthlyCup.monthKeyOf(it.takenDate) == month }
             .sortedByDescending { it.bestSelectedTimestamp }
 
-    /** Bracket of [size] from [month]'s saved photos, or the most recently saved ones. */
-    fun startWorldCup(size: Int, month: String? = worldCupMonth) {
-        val pool = worldCupPool(bestPhotos.value, month)
+    /** Bracket of [size] from [month]'s saved photos, or the most recently saved ones, of the chosen child. */
+    fun startWorldCup(size: Int, month: String? = worldCupMonth, child: Long? = worldCupChildId) {
+        val childId = child?.takeIf { id -> children.any { it.id == id } }
+        val pool = worldCupPool(bestPhotos.value, month, childId)
         if (pool.size < 2) return
         aiTopPickId = null
         playingMonth = month
+        playingChildId = childId
         launchTournament(pool.take(size.coerceAtMost(pool.size)).shuffled(), asRoot = false)
     }
 
@@ -784,6 +1029,7 @@ class BabyCupViewModel(
         engine = null
         saveTournament(null)
         val month = playingMonth
+        val childName = children.firstOrNull { it.id == playingChildId }?.name
         // Show the winner right away; recording it must not hold the screen
         // hostage to disk I/O (a slow device would sit on a blank play screen).
         navigateAsRoot(UiScreen.WorldCupWinner(winner.copy(winsCount = winner.winsCount + 1), bracketSize, month))
@@ -796,8 +1042,7 @@ class BabyCupViewModel(
                         winnerTitle = winner.title,
                         winnerUriString = winner.uriString,
                         totalParticipants = bracketSize,
-                        tournamentTitle = month?.let { "${MonthlyCup.label(it, withYear = true)}의 월드컵" }
-                            ?: "베스트 아기사진 이상형 월드컵",
+                        tournamentTitle = cupTitle(month, childName),
                         monthKey = month
                     )
                 )
@@ -809,6 +1054,14 @@ class BabyCupViewModel(
         }
     }
 
+    /** "10월의 월드컵", "10월의 하린 월드컵", "하린 이상형 월드컵" or the family cup. */
+    private fun cupTitle(month: String?, childName: String?): String = when {
+        month != null && childName != null -> "${MonthlyCup.label(month, withYear = true)}의 $childName 월드컵"
+        month != null -> "${MonthlyCup.label(month, withYear = true)}의 월드컵"
+        childName != null -> "$childName 이상형 월드컵"
+        else -> "베스트 아기사진 이상형 월드컵"
+    }
+
     /** Keep [e]'s unfinished bracket (as photo ids) in [savedState]; null forgets it. */
     private fun saveTournament(e: TournamentEngine<BabyPhoto>?) {
         val snapshot = e?.snapshot()
@@ -816,11 +1069,13 @@ class BabyCupViewModel(
             savedState.remove<IntArray>(KEY_TOURNAMENT)
             savedState.remove<Int>(KEY_AI_TOP_PICK)
             savedState.remove<String>(KEY_MONTH)
+            savedState.remove<Long>(KEY_CHILD)
             return
         }
         savedState[KEY_TOURNAMENT] = TournamentSnapshots.encode(snapshot.map { it.id })
         savedState[KEY_AI_TOP_PICK] = aiTopPickId ?: 0
         savedState[KEY_MONTH] = playingMonth
+        savedState[KEY_CHILD] = playingChildId ?: 0L
     }
 
     /**
@@ -844,6 +1099,7 @@ class BabyCupViewModel(
             }
             aiTopPickId = savedState.get<Int>(KEY_AI_TOP_PICK)?.takeIf { it > 0 }
             playingMonth = savedState.get<String>(KEY_MONTH)
+            playingChildId = savedState.get<Long>(KEY_CHILD)?.takeIf { it > 0 }
             engine = restored
             syncMatchState(restored)
             navigateAsRoot(UiScreen.WorldCupPlay)
@@ -874,10 +1130,13 @@ class BabyCupViewModel(
     companion object {
         private const val TAG = "BabyCupViewModel"
         private const val DAY_MILLIS = 24L * 60L * 60L * 1000L
-        private const val MAX_BABY_NAME = 20
+        private const val MAX_CHILD_NAME = 20
+        /** Name for the pre-v6 baby profile that had a birthday but no name. */
+        private const val DEFAULT_CHILD_NAME = "우리 아기"
         private const val KEY_TOURNAMENT = "tournament"
         private const val KEY_AI_TOP_PICK = "tournament_ai_top_pick"
         private const val KEY_MONTH = "tournament_month"
+        private const val KEY_CHILD = "tournament_child"
 
         /** Title of photos the parent added by hand with the Photo Picker. */
         const val PICKED_PHOTO_TITLE = "직접 고른 사진"
@@ -887,8 +1146,15 @@ class BabyCupViewModel(
         const val STEP_ANALYZE = "베베컵이 흔들림·표정·눈을 살펴보는 중이에요"
         const val STEP_CLUSTER = "베베컵이 비슷한 사진을 묶는 중이에요"
         const val STEP_SHORTLIST = "베베컵이 베스트 후보를 정리하는 중이에요"
+        const val STEP_FACE_ID = "베베컵이 누구 얼굴인지 살펴보는 중이에요"
     }
 }
 
 /** The on-device face model (ML Kit), as 설정 shows it. */
 enum class FaceModelState { UNKNOWN, CHECKING, READY, NOT_INSTALLED, DOWNLOADING, FAILED, UNAVAILABLE }
+
+/**
+ * 아이 얼굴 구분 (the downloaded face-ID model). UNAVAILABLE: downloaded, but
+ * TensorFlow Lite could not run it here (e.g. no Google Play services, play build).
+ */
+enum class FaceIdState { NOT_INSTALLED, DOWNLOADING, READY, FAILED, UNAVAILABLE }
