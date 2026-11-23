@@ -197,6 +197,8 @@ class BabyCupViewModel(
     private var newestUnknownFaceId by mutableStateOf(0L)
     private var faceNamingDismissedFaceId by mutableStateOf(prefs.faceNamingDismissedFaceId)
     private var faceIdJob: Job? = null
+    /** Photos were kept while [faceIdJob] ran; it looks again before it ends. */
+    private var faceIdLookAgain = false
 
     /** Home asks for names when there are groups the parent has not passed on yet. */
     val showFaceNamingPrompt: Boolean
@@ -586,11 +588,18 @@ class BabyCupViewModel(
 
     /** Find faces in kept photos (보관함·인화함) not looked at yet, in the background. */
     fun lookAtKeptPhotos() {
-        if (faceIdJob?.isActive == true || !faceIdStore.isInstalled()) return
+        if (!faceIdStore.isInstalled()) return
+        if (faceIdJob?.isActive == true) {
+            faceIdLookAgain = true
+            return
+        }
         faceIdJob = viewModelScope.launch {
             faceIdBusy = true
             try {
-                familyFaces.identify(familyFaces.keptPhotosToLookAt())
+                do {
+                    faceIdLookAgain = false
+                    familyFaces.identify(familyFaces.keptPhotosToLookAt())
+                } while (faceIdLookAgain)
                 refreshFaceGroups()
             } catch (e: FaceIdUnavailableException) {
                 Log.w(TAG, "face-ID unavailable", e)
@@ -603,7 +612,7 @@ class BabyCupViewModel(
 
     /** 설정 > 다시 시도 after [FaceIdState.UNAVAILABLE]. */
     fun retryFaceId() {
-        if (faceIdBusy) return
+        if (faceIdBusy || aiIsScanning) return
         faceIdReader?.close()
         faceIdReader = null
         faceIdState = if (faceIdStore.isInstalled()) FaceIdState.READY else FaceIdState.NOT_INSTALLED

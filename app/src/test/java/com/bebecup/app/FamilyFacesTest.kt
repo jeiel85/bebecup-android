@@ -156,6 +156,22 @@ class FamilyFacesTest {
     }
 
     @Test
+    fun `an automatic match written late never replaces the parent's choice`() = runBlocking {
+        val dao = db.childrenDao()
+        val harinId = dao.insertChild(ChildEntity(name = "하린", createdAtMillis = 1L))
+        val doyunId = dao.insertChild(ChildEntity(name = "도윤", createdAtMillis = 2L))
+        val photo = keptPhoto("p", near(harin))
+        faces.identify(faces.keptPhotosToLookAt())
+        val face = faces.facesIn(photo.id).single().face
+        faces.name(listOf(face.id), doyunId)
+        // A rematch that read the face before the parent named it now writes its older answer.
+        dao.setUndecidedFaces(listOf(face.id), harinId, FaceState.AUTO)
+        val after = faces.facesIn(photo.id).single().face
+        assertEquals(doyunId, after.childId)
+        assertEquals(FaceState.MANUAL, after.state)
+    }
+
+    @Test
     fun `deleting a child makes its faces unknown again`() = runBlocking {
         val dao = db.childrenDao()
         val harinId = dao.insertChild(ChildEntity(name = "하린", createdAtMillis = 1L))

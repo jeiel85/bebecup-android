@@ -29,17 +29,21 @@ object FaceMatcher {
 
     data class Match(val person: Long, val score: Float)
 
-    /** Mean of the [TOP_K] best similarities to one person's references. */
-    fun score(face: FloatArray, references: List<FloatArray>): Float {
+    /** Mean of the [k] best similarities to one person's references. */
+    fun score(face: FloatArray, references: List<FloatArray>, k: Int = TOP_K): Float {
         if (references.isEmpty()) return -1f
         val sims = references.map { FaceVectors.cosine(face, it) }.sortedDescending()
-        val k = minOf(TOP_K, sims.size)
-        return sims.take(k).sum() / k
+        val n = minOf(k, sims.size)
+        return sims.take(n).sum() / n
     }
 
-    /** Every person's score for [face], best first. */
+    /**
+     * Every person's score for [face], best first. A child's examples are all one
+     * person, so their best few are averaged; [NOT_CHILD] mixes everyone who is not
+     * a child (parents, friends), so only its closest example counts.
+     */
     fun ranked(face: FloatArray, references: Map<Long, List<FloatArray>>): List<Match> =
-        references.map { (person, refs) -> Match(person, score(face, refs)) }
+        references.map { (person, refs) -> Match(person, score(face, refs, if (person == NOT_CHILD) 1 else TOP_K)) }
             .filter { it.score > -1f }
             .sortedByDescending { it.score }
 

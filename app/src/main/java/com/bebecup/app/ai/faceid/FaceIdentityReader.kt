@@ -58,11 +58,13 @@ class FaceIdentityReader(
 
     private val mutex = Mutex()
     private var interpreter: InterpreterApi? = null
+    /** [close] came while a photo was being read; that read closes everything when it ends. */
+    @Volatile private var closeRequested = false
     private val input: ByteBuffer = ByteBuffer.allocateDirect(SIZE * SIZE * 3 * 4).order(ByteOrder.nativeOrder())
     private val output = Array(1) { FloatArray(FaceVectors.DIMENSIONS) }
     private val pixels = IntArray(SIZE * SIZE)
 
-    private val detector by lazy {
+    private val detectorLazy = lazy {
         FaceDetection.getClient(
             FaceDetectorOptions.Builder()
                 .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
@@ -72,8 +74,10 @@ class FaceIdentityReader(
                 .build()
         )
     }
+    private val detector by detectorLazy
 
     override suspend fun read(uri: Uri): List<FaceSample>? = mutex.withLock {
+        if (closeRequested) throw FaceIdUnavailableException("face-ID reader is closed")
         val bitmap = metadataReader.decodeThumbnail(uri, MAX_SIDE) ?: return@withLock null
         try {
             val faces = detect(bitmap)
@@ -85,6 +89,7 @@ class FaceIdentityReader(
             withContext(Dispatchers.Default) { faces.mapNotNull { embed(model, bitmap, it) } }
         } finally {
             bitmap.recycle()
+            if (closeRequested) release()
         }
     }
 
@@ -159,9 +164,25 @@ class FaceIdentityReader(
                 .addOnFailureListener { cont.resumeWithException(it) }
         }
 
+    /**
+     * Frees the model. Native inference cannot be interrupted, so while a photo is
+     * being read this only asks that read to free it when it finishes.
+     */
     override fun close() {
+        closeRequested = true
+        if (mutex.tryLock()) {
+            try {
+                release()
+            } finally {
+                mutex.unlock()
+            }
+        }
+    }
+
+    private fun release() {
         interpreter?.close()
         interpreter = null
+        if (detectorLazy.isInitialized()) detector.close()
     }
 
     private companion object {

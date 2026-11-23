@@ -10,6 +10,8 @@ import com.bebecup.app.data.BabyPhoto
 import com.bebecup.app.domain.children.FaceMatcher
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -26,6 +28,12 @@ class FamilyFaces(
     private val reader: () -> PhotoFaceReader?,
     private val now: () -> Long = System::currentTimeMillis
 ) {
+    /**
+     * One change at a time: matching reads faces, thinks, then writes, and a name
+     * the parent gives in between must not be overwritten by the older result.
+     */
+    private val lock = Mutex()
+
     /** Faces that look like the same person and nobody has named yet, newest first. */
     class Group(val faces: List<FaceInPhoto>) {
         val faceIds: List<Long> get() = faces.map { it.face.id }
@@ -44,6 +52,7 @@ class FamilyFaces(
         var done = 0
         onProgress(0, pending.size)
         for (photo in pending) {
+            // Reading a photo is slow and needs no lock; only storing what was found does.
             val samples = try {
                 faceReader.read(Uri.parse(photo.uriString))
             } catch (e: CancellationException) {
@@ -55,7 +64,7 @@ class FamilyFaces(
                 Log.w(TAG, "could not read faces in photo ${photo.id}", e)
                 null
             }
-            if (samples != null) {
+            if (samples != null) lock.withLock {
                 dao.replaceFaces(
                     photoId = photo.id,
                     faces = samples.map {
@@ -80,11 +89,13 @@ class FamilyFaces(
     }
 
     /** Match every face the parent has not decided against the current examples. */
-    suspend fun rematch() {
+    suspend fun rematch() = lock.withLock { rematchLocked() }
+
+    private suspend fun rematchLocked() {
         val references = references()
         val faces = dao.getUndecidedFaces(VERSION)
         if (faces.isEmpty()) return
-        val manualByPhoto = dao.getManualFacesIn(faces.map { it.photoId }.distinct()).groupBy { it.photoId }
+        val manualByPhoto = dao.getManualFaces(VERSION).groupBy { it.photoId }
         val updates = withContext(Dispatchers.Default) {
             faces.groupBy { it.photoId }.flatMap { (photoId, photoFaces) ->
                 // A child the parent already put in this photo is not matched again in it.
@@ -104,7 +115,7 @@ class FamilyFaces(
             }
         }
         updates.groupBy({ it.second to it.third }, { it.first }).forEach { (owner, ids) ->
-            dao.setFaces(ids, owner.first, owner.second)
+            ids.chunked(MAX_SQL_ARGS).forEach { dao.setUndecidedFaces(it, owner.first, owner.second) }
         }
     }
 
@@ -120,13 +131,16 @@ class FamilyFaces(
      * The parent says [faceIds] are [childId] (null = none of the children). They
      * become examples of that person, and everything else is matched again.
      */
-    suspend fun name(faceIds: List<Long>, childId: Long?) {
-        if (faceIds.isEmpty()) return
-        dao.setFaces(faceIds, childId, FaceState.MANUAL)
-        dao.deleteReferencesFrom(faceIds)
+    suspend fun name(faceIds: List<Long>, childId: Long?) = lock.withLock {
+        if (faceIds.isEmpty()) return@withLock
         val stamp = now()
+        val faces = faceIds.chunked(MAX_SQL_ARGS).flatMap { ids ->
+            dao.setFaces(ids, childId, FaceState.MANUAL)
+            dao.deleteReferencesFrom(ids)
+            dao.getFaces(ids)
+        }
         dao.insertReferences(
-            dao.getFaces(faceIds).map {
+            faces.map {
                 FaceReferenceEntity(
                     childId = childId,
                     embedding = it.embedding,
@@ -138,7 +152,7 @@ class FamilyFaces(
         )
         if (childId != null) dao.trimReferencesOf(childId, REFERENCES_PER_PERSON)
         else dao.trimNotChildReferences(REFERENCES_PER_PERSON)
-        rematch()
+        rematchLocked()
     }
 
     suspend fun facesIn(photoId: Int): List<FaceInPhoto> = dao.getFacesInPhoto(photoId)
@@ -148,7 +162,7 @@ class FamilyFaces(
 
     suspend fun keptPhotosToLookAt(): List<BabyPhoto> = dao.getKeptPhotosWithoutFaces(VERSION)
 
-    suspend fun deleteAll() = dao.deleteAllFaceData()
+    suspend fun deleteAll() = lock.withLock { dao.deleteAllFaceData() }
 
     private suspend fun references(): Map<Long, List<FloatArray>> {
         dao.deleteOtherVersionReferences(VERSION)
@@ -163,5 +177,8 @@ class FamilyFaces(
 
         /** Newest examples kept per child (and for "not a child"), so they follow the children as they grow. */
         const val REFERENCES_PER_PERSON = 40
+
+        /** Old SQLite (Android 11 and below) allows 999 bound values per statement. */
+        private const val MAX_SQL_ARGS = 500
     }
 }

@@ -81,6 +81,16 @@ class FaceMatcherTest {
     }
 
     @Test
+    fun `several different adults marked not-a-child are each still recognised`() {
+        val adults = List(3) { randomUnit() }
+        // One example per adult, all under "not a child".
+        val refs = mapOf(FaceMatcher.NOT_CHILD to adults.map { near(it, 0.9f) }, 1L to List(3) { near(randomUnit(), 0.8f) })
+        adults.forEach { adult ->
+            assertEquals(FaceMatcher.NOT_CHILD, FaceMatcher.bestMatch(near(adult, 0.9f), refs)?.person)
+        }
+    }
+
+    @Test
     fun `unknown faces are grouped by person, largest group first`() {
         val a = randomUnit()
         val b = randomUnit()

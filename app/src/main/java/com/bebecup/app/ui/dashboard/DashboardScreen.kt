@@ -126,7 +126,10 @@ fun DashboardView(
         if (viewModel.children.none { it.birthDate.isNotBlank() } && !viewModel.babyProfilePromptDismissed && bestPhotos.isNotEmpty()) {
             item {
                 BabyProfilePromptCard(
-                    onEnter = { editingProfile = true },
+                    // With several children, each birthday is entered on 우리 아이들.
+                    onEnter = {
+                        if (viewModel.children.size >= 2) viewModel.navigateTo(UiScreen.Children) else editingProfile = true
+                    },
                     onLater = { viewModel.dismissBabyProfilePrompt() }
                 )
             }

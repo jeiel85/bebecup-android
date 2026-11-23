@@ -60,8 +60,8 @@ interface ChildrenDao {
     @Query("SELECT * FROM photo_faces WHERE modelVersion = :version AND state != '${FaceState.MANUAL}'")
     suspend fun getUndecidedFaces(version: Int): List<PhotoFaceEntity>
 
-    @Query("SELECT * FROM photo_faces WHERE photoId IN (:photoIds) AND state = '${FaceState.MANUAL}'")
-    suspend fun getManualFacesIn(photoIds: List<Int>): List<PhotoFaceEntity>
+    @Query("SELECT * FROM photo_faces WHERE modelVersion = :version AND state = '${FaceState.MANUAL}'")
+    suspend fun getManualFaces(version: Int): List<PhotoFaceEntity>
 
     @Query(
         "SELECT photo_faces.*, baby_photos.uriString FROM photo_faces " +
@@ -90,6 +90,10 @@ interface ChildrenDao {
 
     @Query("UPDATE photo_faces SET childId = :childId, state = :state WHERE id IN (:ids)")
     suspend fun setFaces(ids: List<Long>, childId: Long?, state: String)
+
+    /** The app's own match: skipped for faces the parent decided meanwhile. */
+    @Query("UPDATE photo_faces SET childId = :childId, state = :state WHERE id IN (:ids) AND state != '${FaceState.MANUAL}'")
+    suspend fun setUndecidedFaces(ids: List<Long>, childId: Long?, state: String)
 
     @Query("SELECT DISTINCT photoId, childId FROM photo_faces WHERE childId IS NOT NULL")
     fun observePhotoChildren(): Flow<List<PhotoChildRow>>
