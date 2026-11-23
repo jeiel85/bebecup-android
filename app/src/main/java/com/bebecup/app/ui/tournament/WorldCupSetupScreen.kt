@@ -20,6 +20,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -53,6 +54,11 @@ import com.bebecup.app.ui.viewmodel.UiScreen
 @Composable
 fun WorldCupSetupView(viewModel: BabyCupViewModel, bestPhotos: List<BabyPhoto>) {
     val tournaments by viewModel.tournaments.collectAsState()
+    // On a cold start (e.g. from a reminder) whether there are siblings is not known yet.
+    if (!viewModel.childrenLoaded) {
+        Box(Modifier.fillMaxSize())
+        return
+    }
     val perChild = viewModel.cupsPerChild
     // Whose cup: only children with at least two saved photos can have one.
     val childChoices = viewModel.children
@@ -60,6 +66,10 @@ fun WorldCupSetupView(viewModel: BabyCupViewModel, bestPhotos: List<BabyPhoto>) 
         .filter { it.second >= 2 }
     val childId = viewModel.worldCupChildId?.takeIf { id -> childChoices.any { it.first.id == id } }
         ?: viewModel.defaultCupChild(bestPhotos, viewModel.worldCupMonth, tournaments)
+    // Keep the child the screen opened on: picking a month later must not switch whose cup it is.
+    LaunchedEffect(perChild, childId) {
+        if (perChild && childId != null && viewModel.worldCupChildId != childId) viewModel.selectWorldCupChild(childId)
+    }
     val childName = childChoices.firstOrNull { it.first.id == childId }?.first?.name
     val childPhotos = viewModel.photosOf(bestPhotos, childId)
     val months = remember(childPhotos) { MonthlyCup.months(childPhotos.map { it.takenDate }) }

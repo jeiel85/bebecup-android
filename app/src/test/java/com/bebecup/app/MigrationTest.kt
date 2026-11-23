@@ -180,7 +180,10 @@ class MigrationTest {
         )
         helper.writableDatabase.apply {
             // 윤 is the end of 도윤: it must not claim 도윤's cups.
-            execSQL("INSERT INTO children (id, name, birthDate, createdAtMillis) VALUES (1, '하린', '', 1), (2, '도윤', '', 2), (3, '윤', '', 3)")
+            execSQL(
+                "INSERT INTO children (id, name, birthDate, createdAtMillis) VALUES " +
+                    "(1, '하린', '', 1), (2, '도윤', '', 2), (3, '윤', '', 3), (4, '서아', '', 4), (5, '서아', '', 5)"
+            )
             fun cup(title: String, month: String?) = execSQL(
                 "INSERT INTO tournament_records " +
                     "(winnerPhotoId, winnerTitle, winnerUriString, timestamp, totalParticipants, tournamentTitle, monthKey) " +
@@ -191,6 +194,7 @@ class MigrationTest {
             cup("2026년 10월의 도윤 월드컵", "2026-10")
             cup("2026년 10월의 월드컵", "2026-10")
             cup("윤 이상형 월드컵", null)
+            cup("서아 이상형 월드컵", null) // two children named 서아: whose is unknown
         }
         helper.close()
 
@@ -205,7 +209,8 @@ class MigrationTest {
                 "하린 이상형 월드컵" to 1L,
                 "2026년 10월의 도윤 월드컵" to 2L,
                 "2026년 10월의 월드컵" to null,
-                "윤 이상형 월드컵" to 3L
+                "윤 이상형 월드컵" to 3L,
+                "서아 이상형 월드컵" to null
             ),
             childByTitle
         )

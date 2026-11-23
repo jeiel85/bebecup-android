@@ -182,6 +182,9 @@ class BabyCupViewModel(
     /** The family's children, oldest entry first. */
     var children by mutableStateOf<List<ChildEntity>>(emptyList())
         private set
+    /** [children] has been read once; until then [cupsPerChild] can't be told and no cup starts. */
+    var childrenLoaded by mutableStateOf(false)
+        private set
     /** photoId → ids of the children whose faces are in it (face-ID and the parent's corrections). */
     var photoChildren by mutableStateOf<Map<Int, Set<Long>>>(emptyMap())
         private set
@@ -299,7 +302,12 @@ class BabyCupViewModel(
         printCartPhotos = repository.printCartPhotos.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
         tournaments = repository.allTournaments.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-        viewModelScope.launch { childrenDao.observeChildren().collect { children = it } }
+        viewModelScope.launch {
+            childrenDao.observeChildren().collect {
+                children = it
+                childrenLoaded = true
+            }
+        }
         viewModelScope.launch {
             childrenDao.observePhotoChildren().collect { rows ->
                 photoChildren = rows.groupBy({ it.photoId }, { it.childId }).mapValues { it.value.toSet() }
@@ -1058,6 +1066,7 @@ class BabyCupViewModel(
 
     /** Bracket of [size] from [month]'s saved photos, or the most recently saved ones, of the chosen child. */
     fun startWorldCup(size: Int, month: String? = worldCupMonth, child: Long? = worldCupChildId) {
+        if (!childrenLoaded) return // siblings or not is still unknown
         val childId = child?.takeIf { id -> children.any { it.id == id } }
         if (childId == null && cupsPerChild) return // siblings never share a bracket
         val pool = worldCupPool(bestPhotos.value, month, childId)

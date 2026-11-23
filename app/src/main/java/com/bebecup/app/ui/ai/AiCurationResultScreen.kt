@@ -44,7 +44,7 @@ fun AiCurationResultScreen(viewModel: BabyCupViewModel) {
     var showRejected by rememberSaveable { mutableStateOf(false) }
     var whoPhoto by remember { mutableStateOf<BabyPhoto?>(null) }
     // Siblings: "바로 월드컵" is one child's cup, picked here when several can have one.
-    var pickCupChild by remember { mutableStateOf(false) }
+    var pickCupChild by rememberSaveable { mutableStateOf(false) }
     val perChild = viewModel.cupsPerChild
     val cupChoices = if (perChild) viewModel.curationCupChoices() else emptyList()
     val showNames = viewModel.children.size >= 2 || viewModel.faceIdState == FaceIdState.READY

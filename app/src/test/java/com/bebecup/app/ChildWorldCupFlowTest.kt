@@ -221,7 +221,8 @@ class ChildWorldCupFlowTest {
         compose.waitUntil(timeoutMillis = 10_000) { recordedCups().isNotEmpty() }
         assertEquals(MonthlyCup.Held(lastMonth, harin), recordedCups().single().let { MonthlyCup.Held(it.monthKey!!, it.childId) })
 
-        // 하린's month is decided; 도윤's is still waiting.
+        // 하린's month is decided; 도윤's is still waiting, and is where the setup opens for that month.
         assertEquals(doyun, due()?.childId)
+        assertEquals(doyun, viewModel.defaultCupChild(viewModel.bestPhotos.value, lastMonth, recordedCups()))
     }
 }

@@ -62,8 +62,11 @@ fun TournamentHistoryListView(viewModel: BabyCupViewModel, tournaments: List<Tou
             return@Column
         }
         // A month played twice keeps one "N월의 사진" (per child with siblings): the latest cup.
-        val titleHolders = remember(tournaments) {
-            MonthlyCup.titleHolders(tournaments, { it.monthKey }, { it.childId }, { it.timestamp }).map { it.id }.toSet()
+        // Without siblings a child's cup and a family cup share the month, as the home card counts it.
+        val perChild = viewModel.cupsPerChild
+        val titleHolders = remember(tournaments, perChild) {
+            MonthlyCup.titleHolders(tournaments, { it.monthKey }, { if (perChild) it.childId else null }, { it.timestamp })
+                .map { it.id }.toSet()
         }
         LazyColumn(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
