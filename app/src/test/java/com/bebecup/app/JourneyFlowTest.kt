@@ -3,6 +3,7 @@ package com.bebecup.app
 import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -152,6 +153,12 @@ class JourneyFlowTest {
         compose.onNodeWithText("인화함 보기").performClick()
         compose.waitForIdle()
         compose.onNodeWithTag("print_cart_view").assertIsDisplayed()
+        // The share button only exists once the cart Flow emits the winner, and
+        // addToPrintCart writes to Room in the background - one idle pass is not
+        // enough on a slow CI runner (failed intermittently on main, #31).
+        compose.waitUntil(timeoutMillis = 10_000) {
+            compose.onAllNodesWithTag("share_print_button").fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithTag("share_print_button").assertIsDisplayed()
         capture("09_print_box")
     }
