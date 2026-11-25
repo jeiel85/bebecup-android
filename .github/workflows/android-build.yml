@@ -34,9 +34,34 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      # Robolectric downloads its android-all SDK jar from Maven Central on first
+      # use and keeps it in ~/.m2. Without a cache every run depends on that
+      # download; a transient network error then fails every Robolectric test
+      # class at once (MavenArtifactFetcher -> IOException), not just one test.
+      - name: Cache Robolectric SDK jars
+        uses: actions/cache@v5
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'app/src/test/resources/robolectric.properties') }}
+
       # Both channels (play/github flavors): each has its own face-model and update code.
+      # A cache miss still downloads the jar, so retry only when the failure is
+      # that download (MavenArtifactFetcher). Real test failures fail immediately.
       - name: Run unit + integration (Robolectric) tests
-        run: ./gradlew testPlayDebugUnitTest testGithubDebugUnitTest
+        shell: bash
+        run: |
+          log="$RUNNER_TEMP/unit-tests.log"
+          for attempt in 1 2 3; do
+            if ./gradlew testPlayDebugUnitTest testGithubDebugUnitTest 2>&1 | tee "$log"; then
+              exit 0
+            fi
+            if ! grep -q "MavenArtifactFetcher" "$log"; then
+              exit 1
+            fi
+            echo "::warning::Robolectric SDK jar download failed (attempt $attempt/3); retrying"
+            sleep 15
+          done
+          exit 1
 
       - name: Run release script tests (Play upload, update.json)
         run: python3 -m unittest discover -s scripts -p "test_*.py" -v
