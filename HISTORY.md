@@ -1,5 +1,13 @@
 # History
 
+## 2026-11-24 (CI: Robolectric SDK jar 다운로드 실패 대응)
+
+- **증상**: main 푸시 `Android Build`의 `unit-tests`가 두 번 실패(11-23 07:21, 09:02). Robolectric 테스트 클래스 13개가 전부 `classMethod FAILED` — `MavenArtifactFetcher` → `IOException`. 같은 트리의 PR 실행은 통과.
+- **원인**: Robolectric이 테스트 시작 시 android-all SDK jar를 Maven Central에서 받는데(`~/.m2`), 워크플로가 이를 캐시하지 않아 매 실행이 그 다운로드에 걸려 있었다. 일시적 네트워크 오류 한 번이면 클래스 전체가 한꺼번에 실패한다. 코드 결함이 아니다.
+- **변경**: `.github/workflows/android-build.yml` — `~/.m2/repository/org/robolectric`을 `actions/cache`로 캐시(키: `libs.versions.toml`+`robolectric.properties` 해시), 캐시 미스일 때를 위해 로그에 `MavenArtifactFetcher`가 있을 때만 최대 3회 재시도(진짜 테스트 실패는 즉시 실패).
+- **검증**: CI에서 확인(PR 참고). 로컬 빌드는 하지 않음.
+- **미확인**: 캐시가 실제로 `~/.m2/repository/org/robolectric`에 채워지는지는 PR 실행의 두 번째 실행(캐시 히트)에서 확인해야 한다.
+
 ## 2026-11-23 (형제끼리 겨루지 않는 월드컵, v0.13.0)
 
 - **요청**: "아이가 두 명인데 서로 월드컵을 하면 안 될 것 같아. 인식된 아이별로 따로 해야 하지 않을까?" → 확인해 보니 아이별 월드컵은 v0.12.0에 있었지만 섞이는 경로가 셋 남아 있었음: ① 준비 화면 기본값 "모두" ② 추천 결과 "바로 월드컵"은 아이 구분 없이 시작 ③ 이달의 사진·홈 카드가 달 단위(둘째 월드컵이 첫째의 "10월의 사진"을 가져감). 사용자가 "모두"를 아예 없애는 쪽을 고름.
