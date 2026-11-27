@@ -4,6 +4,7 @@
     python3 scripts/play_upload.py --aab app-release.aab --version-code 6 \
         --notes-dir fastlane/metadata/android [--mapping mapping.txt] \
         [--track alpha] [--status draft|completed] [--dry-run]
+    python3 scripts/play_upload.py --show-tracks   # 트랙별 release 읽기만(변경 없음)
 
 흐름: edit 만들기 → AAB 업로드(versionCode 확인) → R8 mapping 업로드(선택)
 → 트랙에 release 추가(출시 노트 ko-KR·en-US) → commit. 중간에 실패하면 edit를 지워
@@ -11,6 +12,8 @@ Play Console에 아무것도 남기지 않습니다.
 
 - 기본 트랙은 alpha(비공개 테스트 - Alpha), 기본 상태는 draft입니다. draft는 Play Console에서
   검토 후 '출시'를 눌러야 테스터에게 나가고, completed는 commit 즉시 테스터에게 출시됩니다.
+- --show-tracks는 edit를 만들어 트랙 목록을 읽고 지웁니다(commit하지 않아 Play에 남는 변경 없음).
+  서비스 계정 인증·앱 권한을 실제로 확인하는 용도입니다.
 - production 트랙은 --allow-production 없이는 거부합니다.
 - 서비스 계정 키는 환경 변수 PLAY_SERVICE_ACCOUNT_JSON(JSON 내용, CI용) 또는
   PLAY_SERVICE_ACCOUNT_JSON_FILE(경로) 또는 .keystore/play-service-account.json(git 제외)에서 읽습니다.
@@ -181,11 +184,33 @@ def upload(
     return {"edit": edit_id, "versionCode": version_code, "track": track, "status": status}
 
 
+def show_tracks(session, *, package: str = PACKAGE_NAME, log=print) -> list[dict]:
+    """트랙별 release(이름·versionCodes·status)를 읽어 출력한다. edit는 commit하지 않고 지운다."""
+    app = f"{API}/{package}"
+    edit_id = _call(session, "POST", f"{app}/edits", "edit 만들기", json={})["id"]
+    try:
+        tracks = _call(session, "GET", f"{app}/edits/{edit_id}/tracks", "트랙 읽기").get("tracks", [])
+    finally:
+        try:
+            _call(session, "DELETE", f"{app}/edits/{edit_id}", "edit 지우기")
+        except Exception as cleanup_error:  # 읽기 결과를 가리지 않도록 알리기만 한다.
+            log(f"⚠ edit {edit_id} 지우기 실패(Play가 시간이 지나면 만료시켜요): {cleanup_error}")
+    for track in tracks:
+        releases = track.get("releases") or []
+        if not releases:
+            log(f"• {track.get('track')}: (release 없음)")
+        for r in releases:
+            codes = ",".join(r.get("versionCodes") or []) or "-"
+            log(f"• {track.get('track')}: {r.get('name', '?')} vc{codes} {r.get('status', '?')}")
+    return tracks
+
+
 def parse_args(argv):
     p = argparse.ArgumentParser(description="베베컵 AAB를 Google Play 테스트 트랙에 올립니다.")
-    p.add_argument("--aab", required=True, type=Path)
-    p.add_argument("--version-code", required=True, type=int)
-    p.add_argument("--notes-dir", required=True, type=Path, help="<locale>/changelogs/<versionCode>.txt 가 있는 폴더")
+    p.add_argument("--show-tracks", action="store_true", help="트랙별 release만 읽어 보여 줘요(업로드 인자 불필요)")
+    p.add_argument("--aab", type=Path)
+    p.add_argument("--version-code", type=int)
+    p.add_argument("--notes-dir", type=Path, help="<locale>/changelogs/<versionCode>.txt 가 있는 폴더")
     p.add_argument("--mapping", type=Path, help="R8 mapping.txt (난독화 해제 파일)")
     p.add_argument("--track", default="alpha")
     p.add_argument("--status", default="draft", choices=STATUSES)
@@ -196,7 +221,12 @@ def parse_args(argv):
         help="commit이 '자동으로 검토에 보낼 수 없음'으로 거부될 때: Play Console에서 직접 검토에 보내요",
     )
     p.add_argument("--dry-run", action="store_true", help="입력만 검증하고 Play에는 접속하지 않아요")
-    return p.parse_args(argv)
+    args = p.parse_args(argv)
+    if not args.show_tracks:
+        missing = [f"--{n}" for n in ("aab", "version-code", "notes-dir") if getattr(args, n.replace("-", "_")) is None]
+        if missing:
+            p.error(f"업로드에는 {', '.join(missing)} 가 필요해요(트랙만 보려면 --show-tracks)")
+    return args
 
 
 def main(argv=None) -> int:
@@ -205,6 +235,15 @@ def main(argv=None) -> int:
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8")
     args = parse_args(argv)
+    if args.show_tracks:
+        try:
+            info = load_service_account_info()
+            print(f"{PACKAGE_NAME} 트랙 상태 as {info['client_email']}")
+            show_tracks(authorized_session(info))
+        except UploadError as e:
+            print(f"✗ {e}", file=sys.stderr)
+            return 1
+        return 0
     try:
         check_track(args.track, args.allow_production)
         if not args.aab.is_file() or args.aab.stat().st_size == 0:

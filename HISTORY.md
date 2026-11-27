@@ -1,5 +1,12 @@
 # History
 
+## 2026-11-27 (CI: Play 업로드 켜기 — `play` 환경, 수동 점검 워크플로)
+
+- **요청**: EL Studio 앱 전체의 Play 업로드를 CI로(둥지 `jeiel85/doran` PR #103 방식: 환경 `play` + 승인, 태그 자동 실행, dry run).
+- **확인한 것**: 이 저장소에는 이미 `android-build.yml`의 `play-alpha` 작업(`scripts/play_upload.py`, 단위 테스트 있음)이 있었지만 `PLAY_SERVICE_ACCOUNT_JSON`이 없어 v0.13.0까지 매번 건너뛰었다(Play alpha vc14는 수동 업로드). 그래서 둥지의 `play-publish.ps1`을 복사하지 않고 저장소 전용 스크립트를 그대로 쓴다. Gradle 서명은 이미 환경 변수(`BEBECUP_RELEASE_*`)를 읽어 고치지 않았다. Play 업로드 키 비밀번호는 저장소 시크릿에만 있어(issue #4) 키스토어 시크릿은 저장소 시크릿에 두고, 서비스 계정 키만 환경 시크릿으로 넣었다.
+- **변경**: GitHub 환경 `play`(승인자 jeiel85, 정책: 브랜치 `main`·태그 `v*`)와 환경 시크릿 `PLAY_SERVICE_ACCOUNT_JSON`(EL Studio 공용 `play-publisher@…`). `play-alpha`에 `environment: play`·concurrency `play-upload`·마지막 `--show-tracks`. `play_upload.py --show-tracks`(edit를 만들어 트랙을 읽고 commit 없이 지움, 테스트 3개). 수동 전용 `play-release.yml`(version, dry_run): 태그 체크아웃 → `testPlayDebugUnitTest` → 서명 AAB → 업로드 인증서 SHA-256 고정값 비교 → dry run이면 입력 검증 + 트랙 읽기, 아니면 alpha 업로드 → 키스토어 삭제. `gradlew` 실행 권한(100755).
+- **검증**: `python -m unittest discover -s scripts`, 로컬 `--show-tracks`로 실제 API 확인(alpha `14 (0.13.0)` completed, 나머지 트랙 비어 있음). dry run 결과는 머지 뒤 기록.
+
 ## 2026-11-24 (CI: Robolectric SDK jar 다운로드 실패 대응)
 
 - **증상**: main 푸시 `Android Build`의 `unit-tests`가 두 번 실패(11-23 07:21, 09:02). Robolectric 테스트 클래스 13개가 전부 `classMethod FAILED` — `MavenArtifactFetcher` → `IOException`. 같은 트리의 PR 실행은 통과.

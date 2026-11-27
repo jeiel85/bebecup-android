@@ -381,10 +381,18 @@ jobs:
   # its own without touching the GitHub release. Skips with a warning until the
   # PLAY_SERVICE_ACCOUNT_JSON secret exists. Always the alpha track; production is
   # only reachable from scripts/play_upload.py with --allow-production.
+  # Environment "play" holds PLAY_SERVICE_ACCOUNT_JSON and needs a reviewer's
+  # approval in the Actions page before this job starts (docs/RELEASE.md).
+  # play-release.yml (manual re-upload / dry run) shares the concurrency group,
+  # so two Play edits never run at once.
   play-alpha:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: release
     runs-on: ubuntu-latest
+    environment: play
+    concurrency:
+      group: play-upload
+      cancel-in-progress: false
     permissions:
       contents: read
     env:
@@ -441,3 +449,9 @@ jobs:
             --notes-dir fastlane/metadata/android \
             --track alpha \
             --status "$PLAY_RELEASE_STATUS"
+
+      - name: Show Play tracks
+        if: steps.key.outputs.enabled == 'true'
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: python3 scripts/play_upload.py --show-tracks
