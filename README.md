@@ -79,6 +79,10 @@
 scripts/play-bundle.sh X.Y.Z
 ```
 
+### 릴리스와 Play 업로드
+
+태그 `vX.Y.Z`를 푸시하면 `Android Build` 워크플로가 GitHub Release를 만들고, 이어서 `play-alpha` 작업이 Play AAB를 **비공개 테스트 - Alpha**에 올립니다. 이 작업은 GitHub 환경 `play`에서 돌아 Actions 화면에서 승인해야 시작합니다. 점검(dry run)이나 다시 올리기는 수동 실행 전용 `Play Release (manual)` 워크플로(`play-release.yml`)로 하며, 태그 푸시로는 돌지 않아 같은 버전이 두 번 올라가지 않습니다. 태그로 CI가 올린 버전은 로컬 스크립트나 Play Console에서 다시 올리지 않습니다. 자세한 절차는 [docs/RELEASE.md](docs/RELEASE.md)의 "자동 업로드"를 참고하세요.
+
 ### 릴리즈 서명
 
 채널마다 키가 다릅니다. Play 빌드는 `release-signing.properties`의 `BEBECUP_RELEASE_*`(Play 업로드 키), GitHub APK는 `.keystore/github-release-signing.properties`의 `BEBECUP_GITHUB_*`로 서명합니다. 자세한 절차는 [docs/RELEASE.md](docs/RELEASE.md)를 참고하세요.

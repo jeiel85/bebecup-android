@@ -114,11 +114,27 @@ Play Console이 "네이티브 코드를 포함하며 디버그 기호가 업로�
 2. `scripts/play_upload.py`가 edit를 만들고 AAB를 올린 뒤 versionCode가 `app/build.gradle.kts`와 같은지 확인하고, mapping을 난독화 해제 파일로 올린다.
 3. **비공개 테스트 - Alpha**(`alpha`) 트랙에 release를 추가한다. 출시 노트는 아래 원천 파일의 ko-KR·en-US이다.
 4. commit한다. 중간에 실패하면 edit를 지워 Play Console에 남는 변경이 없다.
+5. `--show-tracks`로 트랙별 release를 로그에 남긴다(읽기만, edit는 commit 없이 지움).
 
+- `play-alpha` 작업은 GitHub 환경 **`play`**에서 돈다. 이 환경에 `PLAY_SERVICE_ACCOUNT_JSON`이 있고, 승인자(jeiel85)가 Actions 화면에서 **Review deployments → Approve**를 눌러야 시작한다. 배포 정책은 브랜치 `main`과 태그 `v*`만 허용한다. 키스토어·비밀번호는 저장소 시크릿 그대로다(업로드 키 비밀번호가 GitHub에만 있어 옮길 수 없음, issue #4).
 - 기본 상태는 **draft**다. Play Console → 베베컵 → 테스트 및 출시 → 비공개 테스트 - Alpha에서 초안을 확인하고 '검토 → 출시'를 누르면 테스터에게 나간다. 바로 출시하려면 저장소 변수 `PLAY_RELEASE_STATUS`를 `completed`로 둔다.
 - 시크릿 `PLAY_SERVICE_ACCOUNT_JSON`이 없으면 작업이 경고(`Play upload skipped`)만 남기고 건너뛴다. 키를 나중에 넣었으면 그 실행의 `play-alpha` 작업만 다시 실행(`gh run rerun <run-id> --job <job-id>`)하거나 아래 로컬 명령을 쓴다.
-- 워크플로는 alpha 트랙만 쓴다. production은 `scripts/play_upload.py --track production --allow-production`을 사용자가 직접 지시할 때만 쓴다. 서비스 계정에도 프로덕션 출시 권한을 주지 않는다.
+- 워크플로는 alpha 트랙만 쓴다(지금 베베컵이 쓰는 트랙은 alpha 하나). production은 `scripts/play_upload.py --track production --allow-production`을 사용자가 직접 지시할 때만 쓴다. 서비스 계정은 EL Studio 앱 공용이라 프로덕션 권한도 있으므로, production을 막는 것은 스크립트의 `--allow-production` 검사와 워크플로의 `--track alpha` 고정이다.
 - Play가 "자동으로 검토에 보낼 수 없음"으로 commit을 거부하면 `--changes-not-sent-for-review`를 붙여 로컬에서 다시 올리고 Play Console에서 검토에 보낸다.
+
+#### 수동 실행 워크플로 (`play-release.yml`: 점검·다시 올리기)
+
+`workflow_dispatch` 전용이라 태그 푸시로는 돌지 않는다(같은 버전을 CI가 두 번 올리지 않음). `play-alpha`와 같은 `play` 환경(승인 필요)과 concurrency 그룹 `play-upload`를 써서 Play edit가 동시에 둘 생기지 않는다.
+
+```bash
+gh workflow run play-release.yml --ref main -f version=X.Y.Z               # dry_run=true(기본): 올리지 않음
+gh workflow run play-release.yml --ref main -f version=X.Y.Z -f dry_run=false  # alpha에 실제 업로드
+```
+
+- 태그 `vX.Y.Z`를 체크아웃해 `testPlayDebugUnitTest` → 서명된 `bundlePlayRelease` → 업로드 인증서 SHA-256을 위 표의 값과 비교한다. 업로드 스크립트는 워크플로를 돌린 커밋(`main`)의 것을 쓴다.
+- `dry_run=true`: `play_upload.py --dry-run`(입력 검증) 뒤 `--show-tracks`로 Play API 인증·앱 권한을 실제로 확인한다. Play에 남는 변경이 없다.
+- `dry_run=false`: alpha에 올린다(상태는 `PLAY_RELEASE_STATUS`). 태그 실행의 `play-alpha`를 다시 돌릴 수 있으면(산출물 보관 90일 안) 그쪽이 먼저다. 이미 올린 versionCode는 Play가 거부하므로 중복 출시는 생기지 않는다.
+- 키스토어는 `$RUNNER_TEMP/keys`에만 풀고 마지막에 지운다.
 
 로컬에서 다시 올리기(같은 스크립트, 키는 `.keystore/play-service-account.json` 또는 `PLAY_SERVICE_ACCOUNT_JSON_FILE`):
 
@@ -127,25 +143,27 @@ python -m pip install -r scripts/requirements-play.txt   # 처음 한 번
 scripts/play-upload.sh X.Y.Z                     # alpha, draft
 scripts/play-upload.sh X.Y.Z --status completed  # alpha, 바로 출시
 scripts/play-upload.sh X.Y.Z --dry-run           # 입력만 검증, Play 접속 없음
+python scripts/play_upload.py --show-tracks      # 트랙 상태만 읽기
 ```
+
+CI 업로드가 켜진 뒤로는 로컬 업로드를 기본으로 쓰지 않는다. 태그를 푸시하면 `play-alpha`가 올리므로, 같은 버전을 로컬이나 Play Console에서 또 올리지 않는다(올리기 전에 `--show-tracks`로 이미 올라갔는지 본다).
 
 `dist/`에 그 버전 AAB가 없으면 먼저 `scripts/play-bundle.sh X.Y.Z`로 받는다. 출시 노트는 태그 시점의 원천 파일, mapping은 `play-bundle.sh`가 AAB 옆에 받아 둔 `…-mapping.txt`를 쓴다(GitHub Release의 mapping은 GitHub APK 빌드의 것이라 Play AAB와 맞지 않는다).
 
-### 서비스 계정 준비 (사용자가 직접, 한 번만)
+### 서비스 계정 (2026-11-27부터 EL Studio 공용)
 
-1. **Google Cloud Console**(키를 관리할 Google 계정, 보통 `pedaiah85@gmail.com`)에서 프로젝트를 하나 만들고(예: `bebecup-play`) **API 및 서비스 → 라이브러리 → Google Play Android Developer API**를 사용 설정한다.
-2. **IAM 및 관리자 → 서비스 계정 → 서비스 계정 만들기**(예: `play-uploader`). 프로젝트 역할은 주지 않는다. 만든 계정 → **키 → 키 추가 → 새 키 만들기 → JSON**으로 키 파일을 받는다.
-3. **Play Console**(`pedaiah85@gmail.com` → 개발자 계정 EL Studio) → **사용자 및 권한 → 새 사용자 초대** → 서비스 계정 이메일(`…@….iam.gserviceaccount.com`) 입력 → **앱 권한**에 베베컵만 추가 → **테스트 트랙에 앱 출시** 권한만 준다(프로덕션 출시·스토어 등록정보 권한은 주지 않음) → 초대. 서비스 계정은 수락 절차 없이 바로 추가된다. 권한이 API에 반영되기까지 시간이 걸릴 수 있다.
-4. **GitHub 시크릿**: 받은 JSON을 그대로 넣는다.
+- 계정: `play-publisher@ai-usage-play-publisher.iam.gserviceaccount.com`(Google Cloud 프로젝트 `ai-usage-play-publisher`). EL Studio의 모든 앱에 테스트 트랙·프로덕션 출시 권한이 있다. 베베컵용 계정을 따로 만들지 않는다.
+- 키 원본은 `%USERPROFILE%\.play\play-service-account.json`(저장소 밖)이고, GitHub에는 **환경 `play`의 시크릿** `PLAY_SERVICE_ACCOUNT_JSON`으로 넣었다(저장소 시크릿이 아님):
 
-   ```bash
-   gh secret set PLAY_SERVICE_ACCOUNT_JSON < 받은-키.json
-   ```
+  ```bash
+  gh secret set PLAY_SERVICE_ACCOUNT_JSON --env play < "$USERPROFILE/.play/play-service-account.json"
+  ```
 
-5. **로컬에서도 쓸 때만**: 키를 `.keystore/play-service-account.json`(git 제외)으로 옮긴다. 쓰지 않으면 받은 파일을 지운다. 키는 Google Cloud에서 언제든 새로 만들 수 있어 키스토어처럼 드라이브에 백업하지 않는다. 키가 샜다고 의심되면 Google Cloud에서 그 키를 삭제하고 새 키를 시크릿에 넣는다.
-6. (선택) 테스터에게 바로 출시하려면 `gh variable set PLAY_RELEASE_STATUS --body completed`.
+- 로컬 스크립트는 `PLAY_SERVICE_ACCOUNT_JSON_FILE`로 그 파일을 가리키거나 `.keystore/play-service-account.json`(git 제외)에 복사해 쓴다.
+- 키가 샜다고 의심되면 Google Cloud에서 그 키를 지우고 새 키를 만들어 이 시크릿과 다른 앱들의 같은 시크릿을 함께 바꾼다.
+- (선택) 테스터에게 바로 출시하려면 `gh variable set PLAY_RELEASE_STATUS --body completed`.
 
-연결 확인: `scripts/play-upload.sh <이미 Play에 올린 버전>`을 실행해 "version code … has already been used"류의 AAB 업로드 거부가 나오면 인증과 권한은 정상이다(edit는 지워져 남는 변경 없음). 403(`The caller does not have permission`)이면 3번 권한이나 반영 대기 문제다.
+연결 확인: `python scripts/play_upload.py --show-tracks`(또는 `play-release.yml`을 `dry_run=true`로)가 트랙 목록을 보여 주면 인증과 권한은 정상이다. 403(`The caller does not have permission`)이면 Play Console의 앱 권한 문제다.
 
 ### 수동 업로드 (자동 업로드를 쓰지 못할 때)
 
@@ -189,6 +207,11 @@ BEBECUP_GITHUB_KEYSTORE_BASE64   # GitHub APK 키 keystore (.p12) Base64
 BEBECUP_GITHUB_STORE_PASSWORD    # 그 비밀번호
 BEBECUP_GITHUB_KEY_ALIAS         # 그 별칭
 BEBECUP_GITHUB_KEY_PASSWORD      # 그 키 비밀번호
+```
+
+환경 `play`의 시크릿(승인 필요, 위 "자동 업로드"):
+
+```text
 PLAY_SERVICE_ACCOUNT_JSON        # Play 업로드용 서비스 계정 키 JSON (없으면 play-alpha 작업이 건너뜀)
 ```
 

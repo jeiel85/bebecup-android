@@ -167,6 +167,44 @@ class PlayUploadTest(unittest.TestCase):
         with self.assertRaisesRegex(pu.UploadError, "서비스 계정 키가 없어요"):
             pu.load_service_account_info({"PLAY_SERVICE_ACCOUNT_JSON_FILE": str(self.tmp / "missing.json")})
 
+    def test_show_tracks_reads_and_deletes_edit_without_commit(self):
+        routes = {
+            ("POST", "/edits"): FakeResponse(200, {"id": "E1"}),
+            ("GET", "/edits/E1/tracks"): FakeResponse(
+                200,
+                {
+                    "tracks": [
+                        {"track": "alpha", "releases": [{"name": "0.13.0", "versionCodes": ["14"], "status": "completed"}]},
+                        {"track": "production", "releases": []},
+                    ]
+                },
+            ),
+            ("DELETE", "/edits/E1"): FakeResponse(204),
+        }
+        session = FakeSession(routes)
+        lines = []
+        tracks = pu.show_tracks(session, log=lines.append)
+        self.assertEqual([t["track"] for t in tracks], ["alpha", "production"])
+        self.assertEqual(lines, ["• alpha: 0.13.0 vc14 completed", "• production: (release 없음)"])
+        self.assertEqual([m for m, _, _ in session.calls], ["POST", "GET", "DELETE"])
+        self.assertFalse(any(":commit" in u for _, u, _ in session.calls))
+
+    def test_show_tracks_deletes_edit_when_read_fails(self):
+        routes = {
+            ("POST", "/edits"): FakeResponse(200, {"id": "E1"}),
+            ("GET", "/edits/E1/tracks"): FakeResponse(403, {"error": {"message": "The caller does not have permission"}}),
+            ("DELETE", "/edits/E1"): FakeResponse(204),
+        }
+        session = FakeSession(routes)
+        with self.assertRaisesRegex(pu.UploadError, "HTTP 403"):
+            pu.show_tracks(session, log=lambda *_: None)
+        self.assertEqual(session.calls[-1][0], "DELETE")
+
+    def test_upload_args_required_unless_show_tracks(self):
+        self.assertTrue(pu.parse_args(["--show-tracks"]).show_tracks)
+        with self.assertRaises(SystemExit):
+            pu.parse_args(["--aab", str(self.aab)])
+
     def test_dry_run_validates_without_network(self):
         info = {"type": "service_account", "client_email": "ci@x.iam.gserviceaccount.com", "private_key": "k"}
         key_file = self.tmp / "key.json"
